@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{4E7ABE7A-4F99-455E-AA43-2225FFCA0D05}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>vMap.Voronoi</RootNamespace>
+    <AssemblyName>vMap.Voronoi</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="LibNoise">
+      <HintPath>..\..\..\..\..\Desktop\LibNoise\LibNoise\bin\Debug\LibNoise.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoGame.Extended, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MonoGame.Extended.0.4.64\lib\MonoGame.Extended.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MonoGame.Framework, Version=3.4.0.456, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\Program Files (x86)\MonoGame\v3.0\Assemblies\Windows\MonoGame.Framework.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Mathematics">
+      <HintPath>..\..\..\..\..\Desktop\SharpDX\Bin\SharpDX Desktop DLLs\SharpDX.Mathematics.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Agent.cs" />
+    <Compile Include="AStarSearch.cs" />
+    <Compile Include="Coordinate.cs" />
+    <Compile Include="Counts.cs" />
+    <Compile Include="csDelaunay\Delaunay\BoundsCheck.cs" />
+    <Compile Include="csDelaunay\Delaunay\Edge.cs" />
+    <Compile Include="csDelaunay\Delaunay\EdgeList.cs" />
+    <Compile Include="csDelaunay\Delaunay\EdgeReorderer.cs" />
+    <Compile Include="csDelaunay\Delaunay\Halfedge.cs" />
+    <Compile Include="csDelaunay\Delaunay\HalfedgePriorityQueue.cs" />
+    <Compile Include="csDelaunay\Delaunay\ICoord.cs" />
+    <Compile Include="csDelaunay\Delaunay\LR.cs" />
+    <Compile Include="csDelaunay\Delaunay\Site.cs" />
+    <Compile Include="csDelaunay\Delaunay\SiteList.cs" />
+    <Compile Include="csDelaunay\Delaunay\Triangle.cs" />
+    <Compile Include="csDelaunay\Delaunay\Vertex.cs" />
+    <Compile Include="csDelaunay\Delaunay\Voronoi.cs" />
+    <Compile Include="csDelaunay\Geom\Circle.cs" />
+    <Compile Include="csDelaunay\Geom\LineSegment.cs" />
+    <Compile Include="csDelaunay\Geom\Polygon.cs" />
+    <Compile Include="csDelaunay\Geom\Rectf.cs" />
+    <Compile Include="csDelaunay\Geom\Vector2f.cs" />
+    <Compile Include="csDelaunay\Geom\Winding.cs" />
+    <Compile Include="csDelaunay\Utilities.cs" />
+    <Compile Include="ElevationThresholds.cs" />
+    <Compile Include="Graph.cs" />
+    <Compile Include="GraphCrossEdge.cs" />
+    <Compile Include="GraphEdge.cs" />
+    <Compile Include="GraphVertex.cs" />
+    <Compile Include="Interpolate.cs" />
+    <Compile Include="IProvideCounts.cs" />
+    <Compile Include="IProvideMetrics.cs" />
+    <Compile Include="IProvideTimings.cs" />
+    <Compile Include="IWeightedGraph.cs" />
+    <Compile Include="Map.cs" />
+    <Compile Include="MapColors.cs" />
+    <Compile Include="MetricItem.cs" />
+    <Compile Include="NoiseGenerator.cs" />
+    <Compile Include="NoiseParameter.cs" />
+    <Compile Include="NoiseType.cs" />
+    <Compile Include="FloatArrayExtensions.cs" />
+    <Compile Include="PriorityEventQueue.cs" />
+    <Compile Include="PriorityQueue.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ShapeType.cs" />
+    <Compile Include="Site.cs" />
+    <Compile Include="SiteComparer.cs" />
+    <Compile Include="SiteState.cs" />
+    <Compile Include="SiteStateChangedEventArgs.cs" />
+    <Compile Include="SiteType.cs" />
+    <Compile Include="ThresholdColorProperty.cs" />
+    <Compile Include="Timings.cs" />
+    <Compile Include="Utilities.cs" />
+    <Compile Include="VoronoiComponent.cs" />
+    <Compile Include="VoronoiGraphFactory.cs" />
+    <Compile Include="VoronoiLibrary.cs" />
+    <Compile Include="VoronoiTraceLevel.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
