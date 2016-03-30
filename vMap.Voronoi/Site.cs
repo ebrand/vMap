@@ -73,15 +73,15 @@ namespace vMap.Voronoi
 				result = Color.ForestGreen;
 			else if((this.State & SiteState.Visited) == SiteState.Visited)
 				result = Color.LightGreen;
-			else if ((this.State & SiteState.Frontier) == SiteState.Frontier)
-				result = Color.DarkBlue;
+			//else if ((this.State & SiteState.Frontier) == SiteState.Frontier)
+			//	result = Color.DarkBlue;
 			else if ((this.State & SiteState.AStarSearchStart) == SiteState.AStarSearchStart)
 				result = Color.Red;
 			else if ((this.State & SiteState.AStarSearchGoal) == SiteState.AStarSearchGoal)
 				result = Color.Orange;
-			else if ((this.State & SiteState.Impassable) == SiteState.Impassable)
+			else if ((this.State & SiteState.Wall) == SiteState.Wall)
 				result = Color.Black;
-			else if((this.State & SiteState.AgentPath) == SiteState.AgentPath)
+			else if((this.State & SiteState.Path) == SiteState.Path)
 				result = Color.DarkGray;
 			
 			if ((this.State & SiteState.Hover) == SiteState.Hover)

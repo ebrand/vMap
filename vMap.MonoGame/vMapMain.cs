@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
@@ -10,10 +11,9 @@ using vMap.Voronoi;
 using LibNoise;
 
 using ButtonState = Microsoft.Xna.Framework.Input.ButtonState;
-using Color = Microsoft.Xna.Framework.Color;
-using Keys = Microsoft.Xna.Framework.Input.Keys;
-using MGE = MonoGame.Extended;
-using System.Collections.Generic;
+using Color       = Microsoft.Xna.Framework.Color;
+using Keys        = Microsoft.Xna.Framework.Input.Keys;
+using MGE         = MonoGame.Extended;
 
 namespace vMap.MonoGame
 {
@@ -23,21 +23,30 @@ namespace vMap.MonoGame
 	{
 		#region Private Members
 
-		// constants
+		// configuration
 		private const	 bool  FULL_SCREEN				= false;
 		private const	 int   WINDOW_WIDTH				= 1024;
 		private const	 int   WINDOW_HEIGHT			= 768;
+		private const	 float NOISE_SCALE				= 0.5f;
+		private const	 int   AGENT_COUNT				= 10;
+		private const	 int   INIT_RELAX_ITERATIONS	= 0;
 		private	readonly Color BG_COLOR					= Color.White;
 		private readonly Color BORDER_COLOR				= Color.DarkGray;
 		private readonly Color DELAUNAY_COLOR			= Color.LightGray;
 		private readonly Color CENTERPOINT_COLOR		= Color.Black;
 		private readonly Color HELP_TEXT_COLOR			= Color.Black;
+		private			 int   _siteCount				= 5000;
+		private			 bool  _showSiteBorders			= false;
+		private			 bool  _showSiteCenterpoints	= false;
+		private			 bool  _showDelaunay			= false;
+		private			 bool  _showHelp				= true;
+		private			 bool  _showAgents				= false;
+		private			 bool  _fillSites				= true;
 
 		private readonly GraphicsDeviceManager			_graphics;
 		private			 MGE.FramesPerSecondCounter		_fps;
 		private			 PriorityEventQueue<Site>		_sitesToUpdate;
 		private			 PriorityEventQueue<Agent>		_agentsToUpdate; 
-		private			 int							_siteCount;
 		private			 SpriteBatch					_spriteBatch;
 		private			 Map							_map;
 		private			 System.Drawing.Rectangle		_plotBounds;
@@ -51,13 +60,8 @@ namespace vMap.MonoGame
 		private			 MouseState						_currentMouseState;
 		private			 MouseState						_previousMouseState;
 		private			 bool							_mouseMoved;
-		private			 bool							_showSiteBorders;
-		private			 bool							_showSiteCenterpoints;
-		private			 bool							_showDelaunay;
-		private			 bool							_showHelp;
-		private			 bool							_showAgents;
-		private			 bool							_fillSites;
 		private			 string							_helpText;
+		private			 string							_helpText2;
 		private			 string							_timingHeadingText;
 		private			 MGE.Camera2D					_camera;
 		private			 Texture2D						_pixel;
@@ -67,7 +71,8 @@ namespace vMap.MonoGame
 		private			 Texture2D						_agentSprite;
 		private			 Agent							_rogue;
 		private			 Texture2D						_rogueSprite;
-		
+		private			 GraphVertex<Site, Coordinate> _mouseHoverSite;
+
 		// vertex arrays
 		private			 int							_siteTriangleCount;
 		private			 VertexPositionColor[]			_siteTriangleVertices;
@@ -89,14 +94,6 @@ namespace vMap.MonoGame
 		public vMapMain()
 		{
 			Utilities.Debug("vMapMain Constructor called.");
-
-			_siteCount            = 10000;
-			_fillSites            = true;
-			_showSiteBorders      = true;
-			_showSiteCenterpoints = false;
-			_showDelaunay         = false;
-			_showHelp             = true;
-			_showAgents           = true;
 
 			if (FULL_SCREEN)
 				_graphics = new GraphicsDeviceManager(this)
@@ -167,19 +164,19 @@ namespace vMap.MonoGame
 			_3x3Pixel = new Texture2D(_graphics.GraphicsDevice, 3, 3);
 			_3x3Pixel.SetData<Color>(new Color[1] { Color.White });
 
-			// create rogue
-			_rogue = new Agent { Location = Utilities.GetRandomLocation(_plotBounds) };
-			_rogue.Site = _map.GetSite(_rogue.Location).Data;
-
-			// create agents
-			var i = 10;
-			_agents = new Agent[i];
-			for(var count = 0; count < i; count++)
+			// create agents, ensuring that each new agent is inside
+			// a site and not on the border of two sites
+			_agents = new Agent[AGENT_COUNT];
+			var count = 0;
+			while(count < AGENT_COUNT)
 			{
-				_agents[count] = new Agent { Location = Utilities.GetRandomLocation(_plotBounds) };
-				_agents[count].Site = _map.GetSite(_agents[count].Location).Data;
+				var rndLoc = Utilities.GetRandomLocation(_plotBounds);
+				var agentSite = _map.GetSite(rndLoc)?.Data;
 
-				//this.StartAgentSearch(_agents[count].Site, _rogue.Site);
+				if((agentSite != null) && !agentSite.IsSiteState(SiteState.Impassable) && !agentSite.IsSiteState(SiteState.Wall))
+				{
+					_agents[count++] = new Agent { Location = rndLoc, Site = agentSite };
+				}
 			}
 
 			// call base.Initialize() last
@@ -204,14 +201,17 @@ namespace vMap.MonoGame
 
 			// help text
 			_helpText =
+				$"Left Mouse:  Set Search Start{Environment.NewLine}" +
+				$"Right Mouse: Set Search Goal{Environment.NewLine}" +
 				$"F1:  Borders{Environment.NewLine}" +
 				$"F2:  Site Points{Environment.NewLine}" +
 				$"F3:  Delaunay Triangulation{Environment.NewLine}" +
+				$"F4:  Regenerate Noise{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
 				$"F5:  Apply Lloyd Centroid Relaxation{Environment.NewLine}" +
 				$"F6:  Start A* Search{Environment.NewLine}" +
-				$"F7:  Clear Search{Environment.NewLine}" +
-				$"F8:  Clear Map{Environment.NewLine}" +
+				$"F7:  Clear Search Start/Goal/Visited{Environment.NewLine}" +
+				$"F8:  Initialize Map/Clear Walls{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
 				$"F9:  Decrease Sites by 1K{Environment.NewLine}" +
 				$"F10: Increase Sites by 1K{Environment.NewLine}" +
@@ -219,6 +219,24 @@ namespace vMap.MonoGame
 				$"F12: Help Text{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
 				 "ESC: Exit";
+
+			_helpText2 =
+				$"CTRL-Left Mouse: Create Wall{Environment.NewLine}" +
+				$"{Environment.NewLine}" +
+				$"CTRL-F1:  Toggle Agents{Environment.NewLine}" +
+				$"CTRL-F2:  Set the Rogue Agent{Environment.NewLine}" +
+				$"CTRL-F3:  -{Environment.NewLine}" +
+				$"CTRL-F4:  -{Environment.NewLine}" +
+				$"{Environment.NewLine}" +
+				$"CTRL-F5:  -{Environment.NewLine}" +
+				$"CTRL-F6:  -{Environment.NewLine}" +
+				$"CTRL-F7:  -{Environment.NewLine}" +
+				$"CTRL-F8:  -{Environment.NewLine}" +
+				$"{Environment.NewLine}" +
+				$"CTRL-F9:  -{Environment.NewLine}" +
+				$"CTRL-F10: -{Environment.NewLine}" +
+				$"CTRL-F11: -{Environment.NewLine}" +
+				$"CTRL-F12: -{Environment.NewLine}";
 
 			_timingHeadingText =
 				$"Site count:{Environment.NewLine}" +
@@ -275,17 +293,18 @@ namespace vMap.MonoGame
 
 			if(_showAgents)
 			{
-				this.DrawRogue();
+				if(_rogue != null)
+					this.DrawRogue();
 				this.DrawAgents();
 			}
 
 			// F11: Fill sites //////////////////////////////////////////////////////////////////////////////////
 			if (_fillSites)
-				this.RenderBuffer(_siteTriangleVertices, PrimitiveType.TriangleList, 0, _siteTriangleCount);
+				this.RenderBuffer(_siteTriangleVertices, PrimitiveType.TriangleList, _siteTriangleCount);
 
 			// F4: Show Delaunay triangulation lines ////////////////////////////////////////////////////////////
 			if(_showDelaunay)
-				this.RenderBuffer(_delaunayLineVertices, PrimitiveType.LineList, 0, _delaunayLineCount);
+				this.RenderBuffer(_delaunayLineVertices, PrimitiveType.LineList, _delaunayLineCount);
 
 			// F2: Show site centerpoints ///////////////////////////////////////////////////////////////////////
 			if(_showSiteCenterpoints)
@@ -294,7 +313,7 @@ namespace vMap.MonoGame
 			
 			// F1: Show site borders ////////////////////////////////////////////////////////////////////////////
 			if (_showSiteBorders)
-				this.RenderBuffer(_borderLineVertices, PrimitiveType.LineList, 0, _borderLineCount);
+				this.RenderBuffer(_borderLineVertices, PrimitiveType.LineList, _borderLineCount);
 
 			// F12: Show Help Text ////////////////////////////////////////////////////////////////////////////////
 			if (_showHelp)
@@ -328,6 +347,13 @@ namespace vMap.MonoGame
 				spriteFont : _fontSegoe12Regular,
 				text       : _helpText,
 				position   : new Vector2(10, 10),
+				color      : HELP_TEXT_COLOR
+			);
+
+			_spriteBatch.DrawString(
+				spriteFont : _fontSegoe12Regular,
+				text       : _helpText2,
+				position   : new Vector2(420, 10),
 				color      : HELP_TEXT_COLOR
 			);
 
@@ -423,100 +449,131 @@ namespace vMap.MonoGame
 			_keyHandlers =
 				new Dictionary<Keys[], KeyHandler>
 				{
-				    { new Keys[1] { Keys.Escape }			    , Exit },
-				    { new Keys[1] { Keys.F1 }				    , ToggleBorders },
-				    { new Keys[1] { Keys.F2 }				    , ToggleSiteCenterpoints },
-				    { new Keys[1] { Keys.F3 }				    , ToggleDelaunayLines },
-				    { new Keys[1] { Keys.F4 }				    , CreateNoiseMap },
-				    { new Keys[1] { Keys.F5 }				    , RelaxVoronoiCells },
-				    { new Keys[1] { Keys.F6 }				    , StartAStarSearch },
-				    { new Keys[1] { Keys.F7 }				    , ClearSearch },
-				    { new Keys[1] { Keys.F8 }				    , ClearMap },
-				    { new Keys[1] { Keys.F9 }				    , DecreaseSites },
-				    { new Keys[1] { Keys.F10 }				    , IncreaseSites },
-				    { new Keys[1] { Keys.F11 }				    , ToggleOutlineFill },
-				    { new Keys[1] { Keys.F12 }				    , ToggleHelp },
-				    { new Keys[2] { Keys.LeftControl, Keys.F1 } , ToggleAgents }
-			    };
+				    { new Keys[1] { Keys.Escape }			     , Exit },
+				    { new Keys[1] { Keys.F1 }				     , ToggleBorders },
+				    { new Keys[1] { Keys.F2 }				     , ToggleSiteCenterpoints },
+				    { new Keys[1] { Keys.F3 }				     , ToggleDelaunayLines },
+				    { new Keys[1] { Keys.F4 }				     , CreateNoiseMap },
+				    { new Keys[1] { Keys.F5 }				     , RelaxVoronoiCells },
+				    { new Keys[1] { Keys.F6 }				     , StartAStarSearch },
+				    { new Keys[1] { Keys.F7 }				     , ClearSearch },
+				    { new Keys[1] { Keys.F8 }				     , ClearMap },
+				    { new Keys[1] { Keys.F9 }				     , DecreaseSites },
+				    { new Keys[1] { Keys.F10 }				     , IncreaseSites },
+				    { new Keys[1] { Keys.F11 }				     , ToggleOutlineFill },
+				    { new Keys[1] { Keys.F12 }				     , ToggleHelp },
+				    { new Keys[2] { Keys.LeftControl, Keys.F1 }  , ToggleAgents },
+					{ new Keys[2] { Keys.RightControl, Keys.F1 } , ToggleAgents },
+				};
 		}
 		private void UpdateMouseInput()
 		{
-			Utilities.StartTimer("UpdateMouseInput");
-
 			Utilities.Debug("vMapMain.UpdateMouseInput() called.");
+			Utilities.StartTimer("UpdateMouseInput");
 
 			_previousMouseState = _currentMouseState;
 			_currentMouseState  = Mouse.GetState();
 			_mouseMoved         = (_currentMouseState != _previousMouseState);
 
-			if(_map == null)
+			if ((_map == null) || !_mouseMoved)
 				return;
-
-			if(!_mouseMoved)
-				return;
+			
+			var leftButton  = _currentMouseState.LeftButton == ButtonState.Pressed;
+			var rightButton = _currentMouseState.RightButton == ButtonState.Pressed;
+			var controlKey  = (_currentKeyboardState.IsKeyDown(Keys.LeftControl) || _currentKeyboardState.IsKeyDown(Keys.RightControl));
+			var shiftKey    = (_currentKeyboardState.IsKeyDown(Keys.LeftShift) || _currentKeyboardState.IsKeyDown(Keys.RightShift));
 
 			// get the site under the mouse pointer
-			var site = _map.GetSite(new System.Drawing.PointF(_currentMouseState.X, _currentMouseState.Y));
+			_mouseHoverSite = _map.GetSite(new System.Drawing.PointF(_currentMouseState.X, _currentMouseState.Y));
 
-			if (site == null)
+			if (_mouseHoverSite == null)
 				return;
 
 			// update the 'Hover' state (remove this state from the previous site
 			// and add it to the current site - if they are different)
-			if((_map.CurrLocation == null) || !_map.CurrLocation.Equals(site))
+			if((_map.CurrLocation == null) || !_map.CurrLocation.Equals(_mouseHoverSite))
 			{
-				if (_map.CurrLocation != null)
-					_map.CurrLocation.Data.RemoveState(SiteState.Hover);
-
-				site.Data.AddState(SiteState.Hover);
-				_map.CurrLocation = site;
+				_map.CurrLocation?.Data.RemoveState(SiteState.Hover);
+				_mouseHoverSite.Data.AddState(SiteState.Hover);
+				_map.CurrLocation = _mouseHoverSite;
 			}
 
-			if (_currentMouseState.LeftButton == ButtonState.Pressed)
-			{
-				if (_currentKeyboardState.IsKeyDown(Keys.LeftControl))
-				{
-					// if the current site isn't already 'Impassable', mnake it so
-					if(!site.Data.IsSiteState(SiteState.Impassable))
-					{
-						site.Data.AddState(SiteState.Impassable);
-						_map.MapGraph.PrimaryWalls.Add(site.Data);
-					}
-				}
-				else
-				{
-					// left-button click = set the current Site as the A* search start
-					if((_map.SearchStart == null) || !_map.SearchStart.Equals(site.Data))
-					{
-						if (_map.SearchStart != null)
-						{
-							_map.SearchStart.RemoveState(SiteState.AStarSearchStart);
-						}
-
-						site.Data.AddState(SiteState.AStarSearchStart);
-						_map.SearchStart = site.Data;
-					}
-				}
-			}
-
-			if (_currentMouseState.RightButton == ButtonState.Pressed)
-			{
-				// right-button click = set the current Site as the A* search goal
-				if((_map.SearchGoal == null) || !_map.SearchGoal.Equals(site.Data))
-				{
-					if (_map.SearchGoal != null)
-					{
-						_map.SearchGoal.RemoveState(SiteState.AStarSearchGoal);
-					}
-
-					site.Data.AddState(SiteState.AStarSearchGoal);
-					_map.SearchGoal = site.Data;
-				}
-			}
+			if(leftButton && controlKey)
+				this.HandleMouse_ControlLeftButtonClick();
+			else if(rightButton && controlKey)
+				this.HandleMouse_ControlRightButtonClick();
+			else if(leftButton && shiftKey)
+				this.HandleMouse_ShiftLeftButtonClick();
+			else if(rightButton && shiftKey)
+				this.HandleMouse_ShiftRightButtonClick();
+			else if(leftButton)
+				this.HandleMouse_LeftButtonClick();
+			else if(rightButton)
+				this.HandleMouse_RightButtonClick();
+			else if(controlKey)
+				this.HandleMouse_ControlHover();
+			else if(shiftKey)
+				this.HandleMouse_ShiftHover();
+			else
+				this.HandleMouse_Hover();
 
 			_mouseUpdateTimeTicks = Utilities.StopTimer("UpdateMouseInput");
 		}
-		private void RenderBuffer(VertexPositionColor[] vertices, PrimitiveType primitiveType, int vertexStart, int primitiveCount)
+
+		private void HandleMouse_ControlLeftButtonClick()
+		{
+			// if the current site isn't already 'Impassable', make it so
+			if(_mouseHoverSite.Data.IsSiteState(SiteState.Wall))
+				return;
+
+			_mouseHoverSite.Data.AddState(SiteState.Impassable);
+			_mouseHoverSite.Data.AddState(SiteState.Wall);
+			_map.MapGraph.PrimaryWalls.Add(_mouseHoverSite.Data);
+		}
+		private void HandleMouse_ControlRightButtonClick()
+		{
+			_rogue = new Agent { Location = new Vector2(_mouseHoverSite.Data.Point.X, _mouseHoverSite.Data.Point.Y), Site = _mouseHoverSite.Data };
+			foreach (var agent in _agents)
+				this.StartAgentSearch(agent.Site, _rogue.Site);
+		}
+		private void HandleMouse_ShiftLeftButtonClick()
+		{}
+		private void HandleMouse_ShiftRightButtonClick()
+		{}
+		private void HandleMouse_LeftButtonClick()
+		{
+			// left-button click = set the current Site as the A* search start
+			if((_map.SearchStart != null) && _map.SearchStart.Equals(_mouseHoverSite.Data))
+				return;
+
+			_map.SearchStart?.RemoveState(SiteState.AStarSearchStart);
+			_mouseHoverSite.Data.AddState(SiteState.AStarSearchStart);
+			_map.SearchStart = _mouseHoverSite.Data;
+		}
+		private void HandleMouse_RightButtonClick()
+		{
+			// right-button click = set the current Site as the A* search goal
+			if((_map.SearchGoal != null) && _map.SearchGoal.Equals(_mouseHoverSite.Data))
+				return;
+
+			_map.SearchGoal?.RemoveState(SiteState.AStarSearchGoal);
+			_mouseHoverSite.Data.AddState(SiteState.AStarSearchGoal);
+			_map.SearchGoal = _mouseHoverSite.Data;
+		}
+		private void HandleMouse_ControlHover()
+		{
+			if(Form.ActiveForm != null)
+				Form.ActiveForm.Text = _mouseHoverSite.Data.ToString();
+		}
+		private void HandleMouse_ShiftHover()
+		{}
+		private void HandleMouse_Hover()
+		{
+			if (Form.ActiveForm != null)
+				Form.ActiveForm.Text = "vMap.MonoGame";
+		}
+		
+		private void RenderBuffer(VertexPositionColor[] vertices, PrimitiveType primitiveType, int primitiveCount)
 		{
 			using(var buffer = new VertexBuffer(_graphics.GraphicsDevice, typeof(VertexPositionColor), vertices.Length, BufferUsage.None))
 			{
@@ -575,9 +632,9 @@ namespace vMap.MonoGame
 			if((_map.SearchStart == null) || (_map.SearchGoal == null))
 				return;
 
-			var aStarSearch = new AStarSearch(_map.MapGraph, _map.SearchStart, _map.SearchGoal);
-			aStarSearch.SiteUpdated += this.OnSiteUpdated;
-			var thread = new Thread(aStarSearch.Search);
+			var search = new AStarSearch(_map.MapGraph, _map.SearchStart, _map.SearchGoal);
+			search.SearchComplete += OnSearchComplete;
+			var thread = new Thread(search.Search);
 			thread.Start();
 		}
 		private void StartAgentSearch(Site start, Site goal)
@@ -607,6 +664,7 @@ namespace vMap.MonoGame
 			foreach(var s in _map.Sites.Values)
 			{
 				s.Data.RemoveState(SiteState.Impassable);
+				s.Data.RemoveState(SiteState.Wall);
 			}
 			this.ClearSearch();
 		}
@@ -628,15 +686,17 @@ namespace vMap.MonoGame
 				_map.SearchGoal = null;
 			}
 
-			foreach (var s in _map.Sites.Values.Where(s => s.Data.IsSiteState(SiteState.Frontier) || s.Data.IsSiteState(SiteState.Visited)))
+			foreach (var s in _map.Sites.Values.Where(s => s.Data.IsSiteState(SiteState.Frontier) || s.Data.IsSiteState(SiteState.Visited) || s.Data.IsSiteState(SiteState.Path)))
 			{
 				s.Data.RemoveState(SiteState.Frontier);
 				s.Data.RemoveState(SiteState.Visited);
+				s.Data.RemoveState(SiteState.Path);
 			}
 		}
 		private void CreateMap()
 		{
 			_map = new Map(_siteCount, _plotBounds);
+			_map.Relax(INIT_RELAX_ITERATIONS);
 			_map.SiteUpdated += this.OnSiteUpdated;
 		}
 		private void CreateNoiseMap()
@@ -652,10 +712,10 @@ namespace vMap.MonoGame
 					seed        : Utilities.GetRandomInt(),
 					octaves     : 6,
 					lacunarity  : 1.5,
-					persistence : 0.5,
-					scale       : 0.25f
+					persistence : 0.75,
+					scale       : NOISE_SCALE
 				),
-				scale: 0.25f
+				scale: NOISE_SCALE
 			);
 			_noiseTimeTicks = Utilities.StopTimer("NoiseMap");
 		}
@@ -744,10 +804,14 @@ namespace vMap.MonoGame
 		private static void OnSearchComplete(object sender, EventArgs e)
 		{
 			var search = (AStarSearch)sender;
+
+			if (!search.CameFrom.ContainsKey(search.Goal))
+				return;
+
 			var next = search.CameFrom[search.Goal];
-			while (!Equals(next, search.Start))
+			while ((next != null) && !Equals(next, search.Start))
 			{
-				next.AddState(SiteState.AgentPath);
+				next.AddState(SiteState.Path);
 				next = search.CameFrom[next];
 			}
 		}
