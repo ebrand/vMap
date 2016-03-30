@@ -14,7 +14,6 @@ using Color = Microsoft.Xna.Framework.Color;
 using Keys = Microsoft.Xna.Framework.Input.Keys;
 using MGE = MonoGame.Extended;
 using System.Collections.Generic;
-using MonoGame.Extended.Timers;
 
 namespace vMap.MonoGame
 {
