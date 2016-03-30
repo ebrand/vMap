@@ -179,7 +179,7 @@ namespace vMap.MonoGame
 				_agents[count] = new Agent { Location = Utilities.GetRandomLocation(_plotBounds) };
 				_agents[count].Site = _map.GetSite(_agents[count].Location).Data;
 
-				this.StartAgentSearch(_agents[count].Site, _rogue.Site);
+				//this.StartAgentSearch(_agents[count].Site, _rogue.Site);
 			}
 
 			// call base.Initialize() last
