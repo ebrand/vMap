@@ -60,6 +60,11 @@
     <StartupObject>vMap.MonoGame.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="DefaultKeyHandler.cs" />
+    <Compile Include="DefaultMouseHandler.cs" />
+    <Compile Include="IKeyHandler.cs" />
+    <Compile Include="IMouseHandler.cs" />
+    <Compile Include="MapConfig.cs" />
     <Compile Include="PriorityEventQueue.cs" />
     <Compile Include="SpriteBatchExtensions.cs" />
     <Compile Include="StandardBasicEffect.cs" />
