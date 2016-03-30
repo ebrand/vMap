@@ -23,7 +23,7 @@ namespace vMap.MonoGame
 	{
 		private readonly MapConfig	   _config;
 		private readonly IMouseHandler _mouseHandler;
-		private readonly IKeyHandler _keyHandler;
+		private readonly IKeyHandler   _keyHandler;
 
 		public vMapMain()
 		{
@@ -32,7 +32,7 @@ namespace vMap.MonoGame
 			_config = new MapConfig();
 
 			if (_config.FULL_SCREEN)
-				_config.Graphics =
+				_config.GraphicsDeviceManager =
 					new GraphicsDeviceManager(this)
 					{
 						PreferredBackBufferWidth = Screen.PrimaryScreen.Bounds.Width,
@@ -40,7 +40,7 @@ namespace vMap.MonoGame
 						IsFullScreen = true
 					};
 			else
-				_config.Graphics =
+				_config.GraphicsDeviceManager =
 					new GraphicsDeviceManager(this)
 					{
 						PreferredBackBufferWidth = _config.WINDOW_WIDTH,
@@ -48,11 +48,12 @@ namespace vMap.MonoGame
 					};
 
 			// tell XNA to call the Draw() method as fast as posible
-			_config.Graphics.SynchronizeWithVerticalRetrace = false;
+			_config.GraphicsDeviceManager.SynchronizeWithVerticalRetrace = false;
 
 			// create a mouse handler
 			_mouseHandler = new DefaultMouseHandler(_config);
 
+			// create a key handler
 			_keyHandler = new DefaultKeyHandler();
 
 			// also tell XNA to call the Update() method before Draw() every cycle
@@ -65,12 +66,20 @@ namespace vMap.MonoGame
 			Utilities.Debug("Initialize() called.");
 			Utilities.StartTimer("Initialize");
 
+			// the GraphicsDeviceManager.GraphicsDevice is not created
+			// until *after* the constructor is called
+			_config.GfxDev = _config.GraphicsDeviceManager.GraphicsDevice;
+
 			this.IsMouseVisible = true;
 			Content.RootDirectory = "Content";
 
 			_config.PlotBounds =
 				new System.Drawing.Rectangle
-				(_config.Graphics.GraphicsDevice.Viewport.TitleSafeArea.X, _config.Graphics.GraphicsDevice.Viewport.TitleSafeArea.Y, _config.Graphics.GraphicsDevice.Viewport.TitleSafeArea.Width, _config.Graphics.GraphicsDevice.Viewport.TitleSafeArea.Height
+				(
+					_config.GfxDev.Viewport.TitleSafeArea.X, 
+					_config.GfxDev.Viewport.TitleSafeArea.Y, 
+					_config.GfxDev.Viewport.TitleSafeArea.Width, 
+					_config.GfxDev.Viewport.TitleSafeArea.Height
 				);
 
 			// create an FPS counter
@@ -94,7 +103,7 @@ namespace vMap.MonoGame
 			// Create Site triangle, site border and Delaunay line vertex arrays for the entire map /////////////
 			this.CreateVertexArrays();
 
-			_config.Pixel = new Texture2D(_config.Graphics.GraphicsDevice, 1, 1);
+			_config.Pixel = new Texture2D(_config.GfxDev, 1, 1);
 			_config.Pixel.SetData<Color>(new Color[1] { Color.White });
 
 			// create agents, ensuring that each new agent is inside
@@ -195,7 +204,7 @@ namespace vMap.MonoGame
 			_config.AgentSprite = Content.Load<Texture2D>("agent");
 			_config.RogueSprite = Content.Load<Texture2D>("rogue_agent");
 
-			SpriteBatchExtensions.LoadContent(_config.Graphics.GraphicsDevice);
+			SpriteBatchExtensions.LoadContent(_config.GfxDev);
 			_config.LoadContentTimeTicks = Utilities.StopTimer("LoadContent");
 		}
 		protected override void UnloadContent()
@@ -261,16 +270,16 @@ namespace vMap.MonoGame
 
 		private void RenderBuffer(VertexPositionColor[] vertices, PrimitiveType primitiveType, int primitiveCount)
 		{
-			using (var buffer = new VertexBuffer(_config.Graphics.GraphicsDevice, typeof(VertexPositionColor), vertices.Length, BufferUsage.None))
+			using (var buffer = new VertexBuffer(_config.GfxDev, typeof(VertexPositionColor), vertices.Length, BufferUsage.None))
 			{
 				buffer.SetData(vertices);
-				_config.Graphics.GraphicsDevice.SetVertexBuffer(null);
-				_config.Graphics.GraphicsDevice.SetVertexBuffer(buffer);
+				_config.GfxDev.SetVertexBuffer(null);
+				_config.GfxDev.SetVertexBuffer(buffer);
 
-				using (var sbe = new StandardBasicEffect(_config.Graphics.GraphicsDevice))
+				using (var sbe = new StandardBasicEffect(_config.GfxDev))
 				{
 					sbe.CurrentTechnique.Passes[0].Apply();
-					_config.Graphics.GraphicsDevice.DrawPrimitives(primitiveType, 0, primitiveCount);
+					_config.GfxDev.DrawPrimitives(primitiveType, 0, primitiveCount);
 				}
 			}
 		}

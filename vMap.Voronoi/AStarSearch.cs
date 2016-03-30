@@ -22,12 +22,10 @@ namespace vMap.Voronoi
 		}
 		public AStarSearch(IWeightedGraph<Site, Coordinate, PointF> graph, Site start, Site goal)
 		{
-			_graph = graph;
+			_frontier  = new PriorityQueue<Site>();
+			_graph     = graph;
 			this.Start = start;
-			this.Goal = goal;
-			_frontier = new PriorityQueue<Site>();
-			this.Start.AddState(SiteState.AStarSearchStart);
-			this.Goal.AddState(SiteState.AStarSearchGoal);
+			this.Goal  = goal;
 		}
 		public void Search()
 		{
