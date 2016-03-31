@@ -54,7 +54,7 @@ namespace vMap.MonoGame
 			_mouseHandler = new DefaultMouseHandler(_config);
 
 			// create a key handler
-			_keyHandler = new DefaultKeyHandler();
+			_keyHandler = new DefaultKeyHandler(_config);
 
 			// also tell XNA to call the Update() method before Draw() every cycle
 			// instead of at a regular interval
@@ -145,8 +145,8 @@ namespace vMap.MonoGame
 
 			// help text
 			_config.HelpText =
-				$"Left Mouse:  Set Search Start{Environment.NewLine}" +
-				$"Right Mouse: Set Search Goal{Environment.NewLine}" +
+				$"LM:  Set Search Start{Environment.NewLine}" +
+				$"RM:  Set Search Goal{Environment.NewLine}" +
 				$"F1:  Borders{Environment.NewLine}" +
 				$"F2:  Site Points{Environment.NewLine}" +
 				$"F3:  Delaunay Triangulation{Environment.NewLine}" +
@@ -165,10 +165,10 @@ namespace vMap.MonoGame
 				 "ESC: Exit";
 
 			_config.HelpText2 =
-				$"CTRL-Left Mouse: Create Wall{Environment.NewLine}" +
-				$"{Environment.NewLine}" +
+				$"CTRL-LM:  Create Wall{Environment.NewLine}" +
+				$"CTRL-RM:  Set the Rogue Agent{Environment.NewLine}" +
 				$"CTRL-F1:  Toggle Agents{Environment.NewLine}" +
-				$"CTRL-F2:  Set the Rogue Agent{Environment.NewLine}" +
+				$"CTRL-F2:  -{Environment.NewLine}" +
 				$"CTRL-F3:  -{Environment.NewLine}" +
 				$"CTRL-F4:  -{Environment.NewLine}" +
 				$"{Environment.NewLine}" +

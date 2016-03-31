@@ -11,11 +11,11 @@ namespace vMap.MonoGame
 	public class MapConfig
 	{
 		public Color BG_COLOR						  = Color.White;
-		public Color BORDER_COLOR					  = Color.DarkGray;
+		public Color BORDER_COLOR					  = Color.Black;
 		public Color DELAUNAY_COLOR					  = Color.LightGray;
 		public Color CENTERPOINT_COLOR				  = Color.Black;
 		public Color HELP_TEXT_COLOR				  = Color.Black;
-		public bool  FULL_SCREEN					  = false;
+		public bool  FULL_SCREEN					  = true;
 		public int   WINDOW_WIDTH					  = 1024;
 		public int   WINDOW_HEIGHT					  = 768;
 		public float NOISE_SCALE					  = 0.5f;

@@ -7,11 +7,17 @@ namespace vMap.MonoGame
 {
 	public class DefaultKeyHandler : IKeyHandler
 	{
+		private readonly MapConfig _config;
+
 		public KeyboardState PreviousKeyboardState { get; set; }
 		public KeyboardState CurrentKeyboardState { get; set; }
 		public Dictionary<Keys[], KeyHandlerDelegate> KeyHandlers { get; set; }
 		public Keys[] PressedKeys { get; set; }
-		
+
+		public DefaultKeyHandler(MapConfig config)
+		{
+			_config = config;
+		}
 		public void HandleKeys()
 		{
 			this.PreviousKeyboardState = this.CurrentKeyboardState;
