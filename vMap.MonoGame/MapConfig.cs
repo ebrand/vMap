@@ -15,13 +15,13 @@ namespace vMap.MonoGame
 		public Color DELAUNAY_COLOR					  = Color.LightGray;
 		public Color CENTERPOINT_COLOR				  = Color.Black;
 		public Color HELP_TEXT_COLOR				  = Color.Black;
-		public bool  FULL_SCREEN					  = false;
+		public bool  FULL_SCREEN					  = true;
 		public int   WINDOW_WIDTH					  = 1024;
 		public int   WINDOW_HEIGHT					  = 768;
-		public float NOISE_SCALE					  = 0.5f;
+		public float NOISE_SCALE					  = 0.25f;
 		public int   AGENT_COUNT					  = 10;
 		public int	 INIT_RELAX_ITERATIONS			  = 4;
-		public int   SiteCount						  = 10000;
+		public int   SiteCount						  = 15000;
 		public bool  ShowSiteBorders				  = false;
 		public bool  ShowSiteCenterpoints			  = false;
 		public bool  ShowDelaunay					  = false;

@@ -235,6 +235,7 @@ namespace vMap.MonoGame
 			while (_config.SitesToUpdate.Count > 0)
 				this.UpdateSite(_config.SitesToUpdate.Dequeue());
 
+			// CTRL-F1: Show agents /////////////////////////////////////////////////////////////////////////////
 			if(_config.ShowAgents)
 			{
 				if(_config.Rogue != null)
@@ -259,7 +260,7 @@ namespace vMap.MonoGame
 			if (_config.ShowSiteBorders)
 				this.RenderBuffer(_config.BorderLineVertices, PrimitiveType.LineList, _config.BorderLineCount);
 
-			// F12: Show Help Text ////////////////////////////////////////////////////////////////////////////////
+			// F12: Show Help Text //////////////////////////////////////////////////////////////////////////////
 			if (_config.ShowHelp)
 				this.DrawHelpText();
 
@@ -443,7 +444,7 @@ namespace vMap.MonoGame
 				    { new Keys[1] { Keys.F1 }				     , ToggleBorders },
 				    { new Keys[1] { Keys.F2 }				     , ToggleSiteCenterpoints },
 				    { new Keys[1] { Keys.F3 }				     , ToggleDelaunayLines },
-				    { new Keys[1] { Keys.F4 }				     , CreateNoiseMap },
+				    { new Keys[1] { Keys.F4 }				     , ClearAndRegenerateNoise },
 				    { new Keys[1] { Keys.F5 }				     , RelaxVoronoiCells },
 				    { new Keys[1] { Keys.F6 }				     , StartAStarSearch },
 				    { new Keys[1] { Keys.F7 }				     , ClearSearch },
@@ -456,6 +457,13 @@ namespace vMap.MonoGame
 					{ new Keys[2] { Keys.RightControl, Keys.F1 } , ToggleAgents },
 				};
 		}
+
+		private void ClearAndRegenerateNoise()
+		{
+			this.ClearMap();
+			this.CreateNoiseMap();
+		}
+
 		private void ToggleBorders()
 		{
 			_config.ShowSiteBorders = !_config.ShowSiteBorders;
@@ -473,16 +481,16 @@ namespace vMap.MonoGame
 			Utilities.StartTimer("NoiseMap");
 			_config.Map.SetNoiseMap(
 				NoiseGenerator.GenerateNoise(
-					noiseType: NoiseType.Billow,
-					width: _config.PlotBounds.Width,
-					height: _config.PlotBounds.Height,
-					frequency: .003,
-					quality: NoiseQuality.High,
-					seed: Utilities.GetRandomInt(),
-					octaves: 6,
-					lacunarity: 1.5,
-					persistence: 0.75,
-					scale: _config.NOISE_SCALE
+					noiseType   : NoiseType.Billow,
+					width       : _config.PlotBounds.Width,
+					height      : _config.PlotBounds.Height,
+					frequency   : .003,
+					quality     : NoiseQuality.High,
+					seed        : Utilities.GetRandomInt(),
+					octaves     : 6,
+					lacunarity  : 1.75,
+					persistence : 0.65,
+					scale       : _config.NOISE_SCALE
 				),
 				scale: _config.NOISE_SCALE
 			);

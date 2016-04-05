@@ -29,7 +29,7 @@ namespace vMap.Voronoi
 		}
 		public static int GetRandomInt()
 		{
-			return GetRandomNumberInRange(int.MinValue, int.MaxValue);
+			return GetRandomNumberInRange(0, int.MaxValue - 1);
 		}
 		public static int RndPosNumUnder(int inclusiveUpperBound)
 		{
