@@ -65,6 +65,7 @@
     <Compile Include="DefaultMouseHandler.cs" />
     <Compile Include="IKeyHandler.cs" />
     <Compile Include="IMouseHandler.cs" />
+    <Compile Include="KeyHandlerDelegate.cs" />
     <Compile Include="MapConfig.cs" />
     <Compile Include="PriorityEventQueue.cs" />
     <Compile Include="SpriteBatchExtensions.cs" />
