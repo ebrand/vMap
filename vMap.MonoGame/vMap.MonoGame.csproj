@@ -55,7 +55,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>vMap.MonoGame.Program</StartupObject>
@@ -67,7 +67,6 @@
     <Compile Include="IMouseHandler.cs" />
     <Compile Include="KeyHandlerDelegate.cs" />
     <Compile Include="MapConfig.cs" />
-    <Compile Include="PriorityEventQueue.cs" />
     <Compile Include="SpriteBatchExtensions.cs" />
     <Compile Include="StandardBasicEffect.cs" />
     <Compile Include="vMapMain.cs" />
@@ -122,7 +121,7 @@
     <Content Include="Content\rogue_agent.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Icon.ico" />
+    <Content Include="icon.ico" />
   </ItemGroup>
   <ItemGroup>
     <MonoGameContentReference Include="Content\Content.mgcb" />
