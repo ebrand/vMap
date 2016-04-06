@@ -20,7 +20,6 @@ namespace vMap.MonoGame
 		}
 		public void HandleKeys()
 		{
-			this.PreviousKeyboardState = this.CurrentKeyboardState;
 			this.CurrentKeyboardState = Keyboard.GetState();
 			this.PressedKeys = this.CurrentKeyboardState.GetPressedKeys();
 
@@ -37,6 +36,7 @@ namespace vMap.MonoGame
 				}
 			}
 			match?.Invoke();
+			this.PreviousKeyboardState = this.CurrentKeyboardState;
 		}
 	}
 }

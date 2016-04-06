@@ -8,14 +8,11 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using vMap.Voronoi;
 
-using ButtonState = Microsoft.Xna.Framework.Input.ButtonState;
-using Color       = Microsoft.Xna.Framework.Color;
-using Keys        = Microsoft.Xna.Framework.Input.Keys;
+using SD = System.Drawing;
+using MXF = Microsoft.Xna.Framework;
 
 namespace vMap.MonoGame
 {
-	public delegate void StartAStarSearchDelegate(Site start, Site goal);
-
 	public class vMapMain : Game
 	{
 		private readonly MapConfig _config;
@@ -55,7 +52,7 @@ namespace vMap.MonoGame
 
 			// initialize out 1x1 pixel image
 			_config.Pixel = new Texture2D(_config.GfxDev, 1, 1);
-			_config.Pixel.SetData<Color>(new Color[1] { Color.White });
+			_config.Pixel.SetData<MXF.Color>(new MXF.Color[1] { MXF.Color.White });
 
 			// Setup key handlers ///////////////////////////////////////////////////////////////////////////////
 			this.CreateKeyHandlers();
@@ -124,22 +121,26 @@ namespace vMap.MonoGame
 				 "ESC: Exit";
 
 			_config.HelpText2 =
-				$"CTRL-LM:  Create Wall{Environment.NewLine}" +
-				$"CTRL-RM:  Set the Rogue Agent{Environment.NewLine}" +
-				$"CTRL-F1:  Toggle Agents{Environment.NewLine}" +
-				$"CTRL-F2:  -{Environment.NewLine}" +
-				$"CTRL-F3:  -{Environment.NewLine}" +
-				$"CTRL-F4:  -{Environment.NewLine}" +
+				$"CTRL-LM : Create Wall{Environment.NewLine}" +
+				$"CTRL-RM : Set the Rogue Agent{Environment.NewLine}" +
+				$"CTRL-F1 : Toggle Agents{Environment.NewLine}" +
+				$"CTRL-F2 : Show Noise Map{Environment.NewLine}" +
+				$"CTRL-F3 : -{Environment.NewLine}" +
+				$"CTRL-F4 : -{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
-				$"CTRL-F5:  -{Environment.NewLine}" +
-				$"CTRL-F6:  -{Environment.NewLine}" +
-				$"CTRL-F7:  -{Environment.NewLine}" +
-				$"CTRL-F8:  -{Environment.NewLine}" +
+				$"CTRL-F5 : -{Environment.NewLine}" +
+				$"CTRL-F6 : -{Environment.NewLine}" +
+				$"CTRL-F7 : -{Environment.NewLine}" +
+				$"CTRL-F8 : -{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
-				$"CTRL-F9:  -{Environment.NewLine}" +
+				$"CTRL-F9 : -{Environment.NewLine}" +
 				$"CTRL-F10: -{Environment.NewLine}" +
 				$"CTRL-F11: -{Environment.NewLine}" +
-				$"CTRL-F12: -{Environment.NewLine}";
+				$"CTRL-F12: -{Environment.NewLine}" +
+				$"CTRL- < : Move Noise Map Left{Environment.NewLine}" +
+				$"CTRL- > : Move Noise Map Right{Environment.NewLine}" +
+				$"CTRL- ^ : Move Noise Map Up{Environment.NewLine}" +
+				$"CTRL- v : Move Noise Map Down{Environment.NewLine}";
 
 			_config.TimingHeadingText =
 				$"Site count:{Environment.NewLine}" +
@@ -202,6 +203,16 @@ namespace vMap.MonoGame
 				this.DrawAgents();
 			}
 
+			// CTRL-F2: Show noise map //////////////////////////////////////////////////////////////////////////
+			if (MapConfig.Constants.SHOW_NOISE_MAP)
+			{
+				_config.SpriteBatch.Draw(
+					_config.NoiseMapTexture,
+					_config.NoiseMapTextureLocation,
+					MXF.Color.White
+				);
+			}
+
 			// F11: Fill sites //////////////////////////////////////////////////////////////////////////////////
 			if (MapConfig.Constants.FILL_SITES)
 				this.RenderBuffer(_config.SiteTriangleVertices, PrimitiveType.TriangleList, _config.SiteTriangleCount);
@@ -246,18 +257,18 @@ namespace vMap.MonoGame
 		private void DrawRogue()
 		{
 			if (_config.Rogue.Site != null)
-				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, MapConfig.Constants.FILL_SITES ? _config.Rogue.Site.GetXnaColor() : Color.White);
+				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, MapConfig.Constants.FILL_SITES ? _config.Rogue.Site.GetXnaColor() : MXF.Color.White);
 			else
-				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, Color.White);
+				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, MXF.Color.White);
 		}
 		private void DrawAgents()
 		{
 			foreach(var agent in _config.Agents)
 			{
 				if(agent.Site != null)
-					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, MapConfig.Constants.FILL_SITES ? agent.Site.GetXnaColor() : Color.White);
+					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, MapConfig.Constants.FILL_SITES ? agent.Site.GetXnaColor() : MXF.Color.White);
 				else
-					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, Color.White);
+					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, MXF.Color.White);
 			}
 		}
 		private void DrawHelpText()
@@ -412,9 +423,45 @@ namespace vMap.MonoGame
 				    { new Keys[1] { Keys.F10 }				     , IncreaseSites },
 				    { new Keys[1] { Keys.F11 }				     , ToggleOutlineFill },
 				    { new Keys[1] { Keys.F12 }				     , ToggleHelp },
-				    { new Keys[2] { Keys.LeftControl, Keys.F1 }  , ToggleAgents },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.F1 } , ToggleAgents },
 					{ new Keys[2] { Keys.RightControl, Keys.F1 } , ToggleAgents },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.F2 } , ToggleNoiseMapTexture },
+					{ new Keys[2] { Keys.RightControl, Keys.F2 } , ToggleNoiseMapTexture },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Left } , MoveNoiseMapTextureLeft },
+					{ new Keys[2] { Keys.RightControl, Keys.Left } , MoveNoiseMapTextureLeft },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Right } , MoveNoiseMapTextureRight },
+					{ new Keys[2] { Keys.RightControl, Keys.Right } , MoveNoiseMapTextureRight },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Up } , MoveNoiseMapTextureUp },
+					{ new Keys[2] { Keys.RightControl, Keys.Up } , MoveNoiseMapTextureUp },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Down } , MoveNoiseMapTextureDown },
+					{ new Keys[2] { Keys.RightControl, Keys.Down } , MoveNoiseMapTextureDown },
 				};
+		}
+		private void MoveNoiseMapTextureLeft()
+		{
+			if((_config.NoiseMapTextureLocation.X - 10) >= 0)
+				_config.NoiseMapTextureLocation.X -= 10;
+		}
+		private void MoveNoiseMapTextureRight()
+		{
+			if((_config.NoiseMapTextureLocation.X + 10) <= _config.PlotBounds.Width)
+				_config.NoiseMapTextureLocation.X += 10;
+		}
+		private void MoveNoiseMapTextureUp()
+		{
+			if((_config.NoiseMapTextureLocation.Y - 10) >= 0)
+			_config.NoiseMapTextureLocation.Y -= 10;
+		}
+		private void MoveNoiseMapTextureDown()
+		{
+			if((_config.NoiseMapTextureLocation.Y + 10) <= _config.PlotBounds.Height)
+				_config.NoiseMapTextureLocation.Y += 10;
 		}
 		private void ClearAndRegenerateNoise()
 		{
@@ -424,9 +471,9 @@ namespace vMap.MonoGame
 		private void CreateNoiseMap()
 		{
 			Utilities.StartTimer("NoiseMap");
-			_config.Map.SetNoiseMap(
-				NoiseGenerator.GenerateNoise(
-					noiseType   : NoiseType.Billow,
+
+			var noiseMap = NoiseGenerator.GenerateNoise(
+					noiseType   : MapConfig.Constants.NOISE_TYPE,
 					width       : _config.PlotBounds.Width,
 					height      : _config.PlotBounds.Height,
 					frequency   : MapConfig.Constants.NOISE_FREQUENCY,
@@ -436,9 +483,29 @@ namespace vMap.MonoGame
 					lacunarity  : MapConfig.Constants.NOISE_LACUNARITY,
 					persistence : MapConfig.Constants.NOISE_PERSISTENCE,
 					scale       : MapConfig.Constants.NOISE_SCALE
-				),
+				);
+
+			// create a bitmap of the noise generated and store it as a Texture2D in the MapConfig
+			var bmpWidth = (int)(_config.PlotBounds.Width * MapConfig.Constants.NOISE_SCALE);
+			var bmpHeight = (int)(_config.PlotBounds.Height * MapConfig.Constants.NOISE_SCALE);
+			var bitmap = new Bitmap(bmpWidth, bmpHeight);
+			for(var x = 0; x < noiseMap.GetLength(0); x++)
+			{
+				for(var y = 0; y < noiseMap.GetLength(1); y++)
+				{
+					var intensity = (int)noiseMap[x, y];
+					bitmap.SetPixel(x, y, SD.Color.FromArgb(intensity, intensity, intensity));
+				}
+			}
+			_config.NoiseMapTexture = bitmap.ToTexture2D(_config.GfxDev);
+			_config.NoiseMapTextureLocation = new MXF.Rectangle(_config.PlotBounds.Width - bmpWidth - 100, _config.PlotBounds.Height - bmpHeight - 100, bmpWidth, bmpHeight);
+
+			// set the noise map on the Map (this calls the 'AssignElevations' method)
+			_config.Map.SetNoiseMap(
+				noiseMap,
 				scale: MapConfig.Constants.NOISE_SCALE
 			);
+
 			_config.NoiseTimeTicks = Utilities.StopTimer("NoiseMap");
 		}
 		private void RelaxVoronoiCells()
@@ -651,6 +718,11 @@ namespace vMap.MonoGame
 		{
 			MapConfig.Constants.SHOW_AGENTS = !MapConfig.Constants.SHOW_AGENTS;
 		}
+		private static void ToggleNoiseMapTexture()
+		{
+			MapConfig.Constants.SHOW_NOISE_MAP = !MapConfig.Constants.SHOW_NOISE_MAP;
+		}
+
 		private static void OnSearchComplete(object sender, EventArgs e)
 		{
 			var search = (AStarSearch)sender;

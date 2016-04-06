@@ -4,12 +4,14 @@ using Microsoft.Xna.Framework.Graphics;
 using vMap.Voronoi;
 using System.Collections.Generic;
 using LibNoise;
-using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended;
 using System.Windows.Forms;
+using System.Drawing;
 
-using Keys = Microsoft.Xna.Framework.Input.Keys;
 using MGE  = MonoGame.Extended;
+using SD   = System.Drawing;
+using MXF  = Microsoft.Xna.Framework;
+using MXFI = Microsoft.Xna.Framework.Input;
 
 namespace vMap.MonoGame
 {
@@ -17,15 +19,16 @@ namespace vMap.MonoGame
 	{
 		public static class Constants
 		{
-			public static Color			BG_COLOR               = Color.White;
-			public static Color			BORDER_COLOR           = Color.Black;
-			public static Color			DELAUNAY_COLOR         = Color.LightGray;
-			public static Color			CENTERPOINT_COLOR      = Color.Black;
-			public static Color			HELP_TEXT_COLOR        = Color.Black;
+			public static MXF.Color		BG_COLOR			   = MXF.Color.White;
+			public static MXF.Color		BORDER_COLOR           = MXF.Color.Black;
+			public static MXF.Color		DELAUNAY_COLOR         = MXF.Color.LightGray;
+			public static MXF.Color		CENTERPOINT_COLOR      = MXF.Color.Black;
+			public static MXF.Color		HELP_TEXT_COLOR        = MXF.Color.Black;
 			public static bool			FULL_SCREEN            = true;
 			public static int			WINDOW_WIDTH           = 1024;
 			public static int			WINDOW_HEIGHT          = 768;
-			
+
+			public static NoiseType		NOISE_TYPE			   = NoiseType.Billow;
 			public static double		NOISE_FREQUENCY        = 0.003D;
 			public static NoiseQuality	NOISE_QUALITY          = NoiseQuality.Low;
 			public static int			NOISE_OCTAVES          = 6;
@@ -42,53 +45,56 @@ namespace vMap.MonoGame
 			public static bool			SHOW_HELP              = true;
 			public static bool			SHOW_AGENTS            = false;
 			public static bool			FILL_SITES             = true;
+			public static bool			SHOW_NOISE_MAP		   = false;
 		}
 
-		public IMouseHandler						  MouseHandler;
-		public IKeyHandler							  KeyHandler;
-		public GraphicsDeviceManager				  GraphicsDeviceManager;
-		public GraphicsDevice						  GfxDev;
-		public FramesPerSecondCounter				  Fps;
-		public PriorityEventQueue<Site>				  SitesToUpdate;
-		public PriorityEventQueue<Agent>			  AgentsToUpdate;
+		public IMouseHandler								MouseHandler;
+		public IKeyHandler									KeyHandler;
+		public GraphicsDeviceManager						GraphicsDeviceManager;
+		public GraphicsDevice								GfxDev;
+		public FramesPerSecondCounter						Fps;
+		public PriorityEventQueue<Site>						SitesToUpdate;
+		public PriorityEventQueue<Agent>					AgentsToUpdate;
 
-		public Texture2D							  Pixel;
-		public Map									  Map;
-		public int									  SiteTriangleCount;
-		public int									  DelaunayLineCount;
-		public int									  BorderLineCount;
-		public long									  DrawTimeTicks;
-		public long									  UpdateTimeTicks;
-		public long									  LoadContentTimeTicks;
-		public long									  InitTimeTicks;
-		public long									  NoiseTimeTicks;
-		public long									  KeyboardUpdateTimeTicks;
-		public long									  MouseUpdateTimeTicks;
-		public SpriteBatch							  SpriteBatch;
-		public System.Drawing.Rectangle				  PlotBounds;
-		public SpriteFont							  FontSegoe8Bold;
-		public SpriteFont							  FontSegoe10Regular;
-		public SpriteFont							  FontSegoe10Bold;
-		public SpriteFont							  FontSegoe12Regular;
-		public SpriteFont							  FontSegoe12Bold;
-		public KeyboardState						  CurrentKeyboardState;
-		public KeyboardState						  PreviousKeyboardState;
-		public MouseState							  CurrentMouseState;
-		public MouseState							  PreviousMouseState;
-		public bool									  MouseMoved;
-		public string								  HelpText;
-		public string								  HelpText2;
-		public string								  TimingHeadingText;
-		public Agent[]								  Agents;
-		public Texture2D							  AgentSprite;
-		public Agent								  Rogue;
-		public Texture2D							  RogueSprite;
-		public GraphVertex<Site, Coordinate>		  MouseHoverSite;
-		public StartAStarSearchDelegate				  StartAStarSearchDelegate;
-		public VertexPositionColor[]				  SiteTriangleVertices;
-		public VertexPositionColor[]				  DelaunayLineVertices;
-		public VertexPositionColor[]				  BorderLineVertices;
-		public Dictionary<Keys[], KeyHandlerDelegate> KeyHandlers;
+		public Texture2D									Pixel;
+		public Map											Map;
+		public int											SiteTriangleCount;
+		public int											DelaunayLineCount;
+		public int											BorderLineCount;
+		public long											DrawTimeTicks;
+		public long											UpdateTimeTicks;
+		public long											LoadContentTimeTicks;
+		public long											InitTimeTicks;
+		public long											NoiseTimeTicks;
+		public long											KeyboardUpdateTimeTicks;
+		public long											MouseUpdateTimeTicks;
+		public SpriteBatch									SpriteBatch;
+		public SD.Rectangle									PlotBounds;
+		public SpriteFont									FontSegoe8Bold;
+		public SpriteFont									FontSegoe10Regular;
+		public SpriteFont									FontSegoe10Bold;
+		public SpriteFont									FontSegoe12Regular;
+		public SpriteFont									FontSegoe12Bold;
+		public MXFI.KeyboardState							CurrentKeyboardState;
+		public MXFI.KeyboardState							PreviousKeyboardState;
+		public MXFI.MouseState								CurrentMouseState;
+		public MXFI.MouseState								PreviousMouseState;
+		public bool											MouseMoved;
+		public string										HelpText;
+		public string										HelpText2;
+		public string										TimingHeadingText;
+		public Agent[]										Agents;
+		public Texture2D									AgentSprite;
+		public Agent										Rogue;
+		public Texture2D									RogueSprite;
+		public GraphVertex<Site, Coordinate>				MouseHoverSite;
+		public StartAStarSearchDelegate						StartAStarSearchDelegate;
+		public VertexPositionColor[]						SiteTriangleVertices;
+		public VertexPositionColor[]						DelaunayLineVertices;
+		public VertexPositionColor[]						BorderLineVertices;
+		public Dictionary<MXFI.Keys[], KeyHandlerDelegate>	KeyHandlers;
+		public Texture2D									NoiseMapTexture;
+		public MXF.Rectangle								NoiseMapTextureLocation;
 
 		public MapConfig(Game game)
 		{
