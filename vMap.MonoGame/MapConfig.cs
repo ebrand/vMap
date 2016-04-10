@@ -33,11 +33,8 @@ namespace vMap.MonoGame
 		public int									  DelaunayLineCount;
 		public int									  BorderLineCount;
 		public long									  DrawTimeTicks;
-		public long									  UpdateTimeTicks;
-		public long									  LoadContentTimeTicks;
 		public long									  InitTimeTicks;
 		public long									  NoiseTimeTicks;
-		public long									  KeyboardUpdateTimeTicks;
 		public long									  MouseUpdateTimeTicks;
 		public GraphicsDeviceManager				  GraphicsDeviceManager;
 		public GraphicsDevice						  GfxDev;

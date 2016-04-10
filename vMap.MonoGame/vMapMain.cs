@@ -24,6 +24,7 @@ namespace vMap.MonoGame
 		private readonly MapConfig	   _config;
 		private readonly IMouseHandler _mouseHandler;
 		private readonly IKeyHandler   _keyHandler;
+		private Cursor _cursor;
 
 		public vMapMain()
 		{
@@ -65,6 +66,7 @@ namespace vMap.MonoGame
 		{
 			Utilities.Debug("Initialize() called.");
 			Utilities.StartTimer("Initialize");
+			this.WaitCursor();
 
 			// the GraphicsDeviceManager.GraphicsDevice is not created
 			// until *after* the constructor is called
@@ -125,14 +127,11 @@ namespace vMap.MonoGame
 
 			// call base.Initialize() last
 			base.Initialize();
-
+			this.DefaultCursor();
 			_config.InitTimeTicks = Utilities.StopTimer("Initialize");
 		}
 		protected override void LoadContent()
 		{
-			Utilities.Debug("LoadContent() called.");
-			Utilities.StartTimer("LoadContent");
-
 			// Create a new SpriteBatch, which can be used to draw textures.
 			_config.SpriteBatch = new SpriteBatch(base.GraphicsDevice);
 
@@ -147,6 +146,7 @@ namespace vMap.MonoGame
 			_config.HelpText =
 				$"LM:  Set Search Start{Environment.NewLine}" +
 				$"RM:  Set Search Goal{Environment.NewLine}" +
+				$"{Environment.NewLine}" +
 				$"F1:  Borders{Environment.NewLine}" +
 				$"F2:  Site Points{Environment.NewLine}" +
 				$"F3:  Delaunay Triangulation{Environment.NewLine}" +
@@ -167,6 +167,7 @@ namespace vMap.MonoGame
 			_config.HelpText2 =
 				$"CTRL-LM:  Create Wall{Environment.NewLine}" +
 				$"CTRL-RM:  Set the Rogue Agent{Environment.NewLine}" +
+				$"{Environment.NewLine}" +
 				$"CTRL-F1:  Toggle Agents{Environment.NewLine}" +
 				$"CTRL-F2:  -{Environment.NewLine}" +
 				$"CTRL-F3:  -{Environment.NewLine}" +
@@ -189,39 +190,25 @@ namespace vMap.MonoGame
 			if (Utilities.TraceLevel >= VoronoiTraceLevel.DetailedTiming)
 				_config.TimingHeadingText +=
 					$"{Environment.NewLine}" +
-
 					$"Init:{Environment.NewLine}" +
 					$" + Noise:{Environment.NewLine}" +
-					$"Load content:{Environment.NewLine}" +
-					$"Update:{Environment.NewLine}" +
-					$" + Keyboard:{Environment.NewLine}" +
-					$" + Mouse:{Environment.NewLine}" +
-
-					$"{Environment.NewLine}" +
-
+					$"Mouse update:{Environment.NewLine}" +
 					$"Draw:{Environment.NewLine}";
 
 			_config.AgentSprite = Content.Load<Texture2D>("agent");
 			_config.RogueSprite = Content.Load<Texture2D>("rogue_agent");
 
 			SpriteBatchExtensions.LoadContent(_config.GfxDev);
-			_config.LoadContentTimeTicks = Utilities.StopTimer("LoadContent");
 		}
 		protected override void UnloadContent()
 		{
 			// TODO: Unload any non ContentManager content here
-			Utilities.Debug("UnloadContent() called.");
 		}
 		protected override void Update(GameTime gameTime)
 		{
-			Utilities.Debug("vMapMain.Update() called.");
-			Utilities.StartTimer("Update");
-			
 			this.UpdateMouseInput();
 			this.UpdateKeyboardInput();
 			base.Update(gameTime);
-
-			_config.UpdateTimeTicks = Utilities.StopTimer("Update");
 		}
 		protected override void Draw(GameTime gameTime)
 		{
@@ -231,11 +218,12 @@ namespace vMap.MonoGame
 			base.GraphicsDevice.Clear(_config.BG_COLOR);
 			_config.SpriteBatch.Begin();
 
-			// handle all the Sites that have been altered and pushed onto the event queue for updating
+			// handle all the Sites that have been altered and pushed onto the
+			// event queue for updating
 			while (_config.SitesToUpdate.Count > 0)
 				this.UpdateSite(_config.SitesToUpdate.Dequeue());
 
-			// CTRL-F1: Show agents /////////////////////////////////////////////////////////////////////////////
+			// CTRL-F1: Show agents?
 			if(_config.ShowAgents)
 			{
 				if(_config.Rogue != null)
@@ -243,29 +231,30 @@ namespace vMap.MonoGame
 				this.DrawAgents();
 			}
 
-			// F11: Fill sites //////////////////////////////////////////////////////////////////////////////////
+			// F11: Fill sites?
 			if (_config.FillSites)
 				this.RenderBuffer(_config.SiteTriangleVertices, PrimitiveType.TriangleList, _config.SiteTriangleCount);
 
-			// F4: Show Delaunay triangulation lines ////////////////////////////////////////////////////////////
+			// F4: Show Delaunay triangulation lines?
 			if(_config.ShowDelaunay)
 				this.RenderBuffer(_config.DelaunayLineVertices, PrimitiveType.LineList, _config.DelaunayLineCount);
 
-			// F2: Show site centerpoints ///////////////////////////////////////////////////////////////////////
+			// F2: Show site centerpoints?
 			if(_config.ShowSiteCenterpoints)
 				foreach(var site in _config.Map.Sites.Values.Select(s => s.Data))
 					_config.SpriteBatch.Draw(_config.Pixel, new Vector2(site.Point.X, site.Point.Y), _config.CENTERPOINT_COLOR);
 			
-			// F1: Show site borders ////////////////////////////////////////////////////////////////////////////
+			// F1: Show site borders?
 			if (_config.ShowSiteBorders)
 				this.RenderBuffer(_config.BorderLineVertices, PrimitiveType.LineList, _config.BorderLineCount);
 
-			// F12: Show Help Text //////////////////////////////////////////////////////////////////////////////
+			// F12: Show Help Text?
 			if (_config.ShowHelp)
 				this.DrawHelpText();
 
 			_config.SpriteBatch.End();
 			base.Draw(gameTime);
+
 			_config.DrawTimeTicks = Utilities.StopTimer("Draw");
 		}
 
@@ -274,7 +263,6 @@ namespace vMap.MonoGame
 			using (var buffer = new VertexBuffer(_config.GfxDev, typeof(VertexPositionColor), vertices.Length, BufferUsage.None))
 			{
 				buffer.SetData(vertices);
-				_config.GfxDev.SetVertexBuffer(null);
 				_config.GfxDev.SetVertexBuffer(buffer);
 
 				using (var sbe = new StandardBasicEffect(_config.GfxDev))
@@ -327,23 +315,16 @@ namespace vMap.MonoGame
 			const float TICKS_PER_MS = TimeSpan.TicksPerMillisecond;
 			var filledText = _config.FillSites ? "Filled" : "Outlined";
 			var timingText =
-				$"{_config.SiteCount: 0000} ({filledText}){Environment.NewLine}" +
+				$"{_config.SiteCount				  : 0000} ({filledText}){Environment.NewLine}" +
                 $"{_config.Fps.CurrentFramesPerSecond : 0000.0000}{Environment.NewLine}";
 
 			if(Utilities.TraceLevel >= VoronoiTraceLevel.DetailedTiming)
 				timingText +=
 					$"{Environment.NewLine}" +
-
-					$"{_config.InitTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.NoiseTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.LoadContentTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.UpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.KeyboardUpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.MouseUpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-
-					$"{Environment.NewLine}" +
-
-					$"{_config.DrawTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}";
+					$"{_config.InitTimeTicks		/ TICKS_PER_MS : 0000.0000}{Environment.NewLine}" +
+					$"{_config.NoiseTimeTicks		/ TICKS_PER_MS : 0000.0000}{Environment.NewLine}" +
+					$"{_config.MouseUpdateTimeTicks / TICKS_PER_MS : 0000.0000}{Environment.NewLine}" +
+					$"{_config.DrawTimeTicks		/ TICKS_PER_MS : 0000.0000}{Environment.NewLine}";
 
 			_config.SpriteBatch.DrawString(
 				spriteFont : _config.FontSegoe10Bold,
@@ -378,7 +359,6 @@ namespace vMap.MonoGame
 		}
 		private void UpdateMouseInput()
 		{
-			Utilities.Debug("vMapMain.UpdateMouseInput() called.");
 			Utilities.StartTimer("UpdateMouseInput");
 
 			_config.PreviousMouseState   = _config.CurrentMouseState;
@@ -432,7 +412,6 @@ namespace vMap.MonoGame
 		}
 		private void UpdateKeyboardInput()
 		{
-			Utilities.Debug("vMapMain.UpdateKeyboardInput() called.");
 			_keyHandler.HandleKeys();
 		}
 		private void CreateKeyHandlers()
@@ -457,13 +436,15 @@ namespace vMap.MonoGame
 					{ new Keys[2] { Keys.RightControl, Keys.F1 } , ToggleAgents },
 				};
 		}
-
 		private void ClearAndRegenerateNoise()
 		{
+			this.WaitCursor();
+
 			this.ClearMap();
 			this.CreateNoiseMap();
-		}
 
+			this.DefaultCursor();
+		}
 		private void ToggleBorders()
 		{
 			_config.ShowSiteBorders = !_config.ShowSiteBorders;
@@ -476,8 +457,22 @@ namespace vMap.MonoGame
 		{
 			_config.ShowDelaunay = !_config.ShowDelaunay;
 		}
+		private void ToggleOutlineFill()
+		{
+			_config.FillSites = !_config.FillSites;
+		}
+		private void ToggleHelp()
+		{
+			_config.ShowHelp = !_config.ShowHelp;
+		}
+		private void ToggleAgents()
+		{
+			_config.ShowAgents = !_config.ShowAgents;
+		}
 		private void CreateNoiseMap()
 		{
+			this.WaitCursor();
+
 			Utilities.StartTimer("NoiseMap");
 			_config.Map.SetNoiseMap(
 				NoiseGenerator.GenerateNoise(
@@ -495,11 +490,17 @@ namespace vMap.MonoGame
 				scale: _config.NOISE_SCALE
 			);
 			_config.NoiseTimeTicks = Utilities.StopTimer("NoiseMap");
+
+			this.DefaultCursor();
 		}
 		private void RelaxVoronoiCells()
 		{
+			this.WaitCursor();
+
 			_config.Map.Relax(1);
 			this.CreateVertexArrays();
+
+			this.DefaultCursor();
 		}
 		private void StartAStarSearch()
 		{
@@ -567,18 +568,6 @@ namespace vMap.MonoGame
 			_config.SiteCount += 1000;
 			this.Initialize();
 		}
-		private void ToggleOutlineFill()
-		{
-			_config.FillSites = !_config.FillSites;
-		}
-		private void ToggleHelp()
-		{
-			_config.ShowHelp = !_config.ShowHelp;
-		}
-		private void ToggleAgents()
-		{
-			_config.ShowAgents = !_config.ShowAgents;
-		}
 		private void StartAgentSearch(Site start, Site goal)
 		{
 			if ((start == null) || (goal == null))
@@ -591,15 +580,23 @@ namespace vMap.MonoGame
 		}
 		private void CreateMap()
 		{
+			this.WaitCursor();
+
 			_config.Map = new Map(_config.SiteCount, _config.PlotBounds);
 			_config.Map.Relax(_config.INIT_RELAX_ITERATIONS);
 			_config.Map.SiteUpdated += this.OnSiteUpdated;
+
+			this.DefaultCursor();
 		}
 		private void CreateVertexArrays()
 		{
+			this.WaitCursor();
+
 			this.CreateSiteTriangleVertices();
 			this.CreateDelaunayLineVertices();
 			this.CreateSiteBorderVertices();
+
+			this.DefaultCursor();
 		}
 		private void CreateSiteTriangleVertices()
 		{
@@ -706,6 +703,15 @@ namespace vMap.MonoGame
 			var i = site.VertexBufferIndex;
 			for (var count = 0; count < site.RegionPoints.Length * 3; count++)
 				_config.SiteTriangleVertices[i++].Color = site.GetXnaColor();
+		}
+		private void WaitCursor()
+		{
+			_cursor = Cursor.Current;
+			Cursor.Current = Cursors.WaitCursor;
+		}
+		private void DefaultCursor()
+		{
+			Cursor.Current = _cursor;
 		}
 	}
 }
