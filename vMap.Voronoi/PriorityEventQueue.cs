@@ -5,14 +5,6 @@ namespace vMap.Voronoi
 {
 	public class PriorityEventQueue<T>
 	{
-		private static readonly PriorityEventQueue<T> _instance = new PriorityEventQueue<T>();
-
-		static PriorityEventQueue()
-		{}
-		private PriorityEventQueue()
-		{}
-		public static PriorityEventQueue<T> Instance => _instance;
-
 		private readonly List<Tuple<T, int>> _elements = new List<Tuple<T, int>>();
 		public int Count => _elements.Count;
 		public void Enqueue(T item, int priority)

@@ -3,60 +3,28 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
-using System.Windows.Forms;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using vMap.Voronoi;
-using LibNoise;
 
-using ButtonState = Microsoft.Xna.Framework.Input.ButtonState;
-using Color       = Microsoft.Xna.Framework.Color;
-using Keys        = Microsoft.Xna.Framework.Input.Keys;
-using MGE         = MonoGame.Extended;
+using SD = System.Drawing;
+using MXF = Microsoft.Xna.Framework;
 
 namespace vMap.MonoGame
 {
-	public delegate void StartAStarSearchDelegate(Site start, Site goal);
-
 	public class vMapMain : Game
 	{
-		private readonly MapConfig	   _config;
-		private readonly IMouseHandler _mouseHandler;
-		private readonly IKeyHandler   _keyHandler;
+		private readonly MapConfig _config;
 
 		public vMapMain()
 		{
 			Utilities.Debug("vMapMain Constructor called.");
 
-			_config = new MapConfig();
+			// create a new MapConfig object passing it this instance of the 'Game' object
+			_config = new MapConfig(this);
 
-			if (_config.FULL_SCREEN)
-				_config.GraphicsDeviceManager =
-					new GraphicsDeviceManager(this)
-					{
-						PreferredBackBufferWidth = Screen.PrimaryScreen.Bounds.Width,
-						PreferredBackBufferHeight = Screen.PrimaryScreen.Bounds.Height,
-						IsFullScreen = true
-					};
-			else
-				_config.GraphicsDeviceManager =
-					new GraphicsDeviceManager(this)
-					{
-						PreferredBackBufferWidth = _config.WINDOW_WIDTH,
-						PreferredBackBufferHeight = _config.WINDOW_HEIGHT
-					};
-
-			// tell XNA to call the Draw() method as fast as posible
-			_config.GraphicsDeviceManager.SynchronizeWithVerticalRetrace = false;
-
-			// create a mouse handler
-			_mouseHandler = new DefaultMouseHandler(_config);
-
-			// create a key handler
-			_keyHandler = new DefaultKeyHandler(_config);
-
-			// also tell XNA to call the Update() method before Draw() every cycle
+			// tell XNA to call the Update() method before Draw() every cycle
 			// instead of at a regular interval
 			this.IsFixedTimeStep = false;
 		}
@@ -64,32 +32,27 @@ namespace vMap.MonoGame
 		protected override void Initialize()
 		{
 			Utilities.Debug("Initialize() called.");
-			Utilities.StartTimer("Initialize");
 
 			// the GraphicsDeviceManager.GraphicsDevice is not created
-			// until *after* the constructor is called
+			// until *after* the 'Game' constructor is called
 			_config.GfxDev = _config.GraphicsDeviceManager.GraphicsDevice;
 
 			this.IsMouseVisible = true;
 			Content.RootDirectory = "Content";
 
+			// set the plot bounds
 			_config.PlotBounds =
 				new System.Drawing.Rectangle
 				(
-					_config.GfxDev.Viewport.TitleSafeArea.X, 
-					_config.GfxDev.Viewport.TitleSafeArea.Y, 
-					_config.GfxDev.Viewport.TitleSafeArea.Width, 
+					_config.GfxDev.Viewport.TitleSafeArea.X,
+					_config.GfxDev.Viewport.TitleSafeArea.Y,
+					_config.GfxDev.Viewport.TitleSafeArea.Width,
 					_config.GfxDev.Viewport.TitleSafeArea.Height
 				);
 
-			// create an FPS counter
-			_config.Fps = new MGE.FramesPerSecondCounter();
-
-			// create a new priority event queue to handle site (cell) updates to the UI
-			_config.SitesToUpdate = new PriorityEventQueue<Site>();
-
-			// create a new priority event queue to handle agent updates to the UI
-			_config.AgentsToUpdate = new PriorityEventQueue<Agent>();
+			// initialize out 1x1 pixel image
+			_config.Pixel = new Texture2D(_config.GfxDev, 1, 1);
+			_config.Pixel.SetData<MXF.Color>(new MXF.Color[1] { MXF.Color.White });
 
 			// Setup key handlers ///////////////////////////////////////////////////////////////////////////////
 			this.CreateKeyHandlers();
@@ -103,30 +66,23 @@ namespace vMap.MonoGame
 			// Create Site triangle, site border and Delaunay line vertex arrays for the entire map /////////////
 			this.CreateVertexArrays();
 
-			_config.Pixel = new Texture2D(_config.GfxDev, 1, 1);
-			_config.Pixel.SetData<Color>(new Color[1] { Color.White });
-
 			// create agents, ensuring that each new agent is inside
 			// a site and not on the border of two sites
-			_config.Agents = new Agent[_config.AGENT_COUNT];
+			_config.Agents = new Agent[MapConfig.Constants.AGENT_COUNT];
 			var count = 0;
-			while(count < _config.AGENT_COUNT)
+			while(count < MapConfig.Constants.AGENT_COUNT)
 			{
 				var rndLoc = Utilities.GetRandomLocation(_config.PlotBounds);
 				var agentSite = _config.Map.GetSite(rndLoc)?.Data;
 
 				if((agentSite != null) && !agentSite.IsSiteState(SiteState.Impassable) && !agentSite.IsSiteState(SiteState.Wall))
-				{
 					_config.Agents[count++] = new Agent { Location = rndLoc, Site = agentSite };
-				}
 			}
 
 			_config.StartAStarSearchDelegate = this.StartAgentSearch;
 
-			// call base.Initialize() last
+			// call base.Initialize() last!
 			base.Initialize();
-
-			_config.InitTimeTicks = Utilities.StopTimer("Initialize");
 		}
 		protected override void LoadContent()
 		{
@@ -165,22 +121,26 @@ namespace vMap.MonoGame
 				 "ESC: Exit";
 
 			_config.HelpText2 =
-				$"CTRL-LM:  Create Wall{Environment.NewLine}" +
-				$"CTRL-RM:  Set the Rogue Agent{Environment.NewLine}" +
-				$"CTRL-F1:  Toggle Agents{Environment.NewLine}" +
-				$"CTRL-F2:  -{Environment.NewLine}" +
-				$"CTRL-F3:  -{Environment.NewLine}" +
-				$"CTRL-F4:  -{Environment.NewLine}" +
+				$"CTRL-LM : Create Wall{Environment.NewLine}" +
+				$"CTRL-RM : Set the Rogue Agent{Environment.NewLine}" +
+				$"CTRL-F1 : Toggle Agents{Environment.NewLine}" +
+				$"CTRL-F2 : Show Noise Map{Environment.NewLine}" +
+				$"CTRL-F3 : -{Environment.NewLine}" +
+				$"CTRL-F4 : -{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
-				$"CTRL-F5:  -{Environment.NewLine}" +
-				$"CTRL-F6:  -{Environment.NewLine}" +
-				$"CTRL-F7:  -{Environment.NewLine}" +
-				$"CTRL-F8:  -{Environment.NewLine}" +
+				$"CTRL-F5 : -{Environment.NewLine}" +
+				$"CTRL-F6 : -{Environment.NewLine}" +
+				$"CTRL-F7 : -{Environment.NewLine}" +
+				$"CTRL-F8 : -{Environment.NewLine}" +
 				$"{Environment.NewLine}" +
-				$"CTRL-F9:  -{Environment.NewLine}" +
+				$"CTRL-F9 : -{Environment.NewLine}" +
 				$"CTRL-F10: -{Environment.NewLine}" +
 				$"CTRL-F11: -{Environment.NewLine}" +
-				$"CTRL-F12: -{Environment.NewLine}";
+				$"CTRL-F12: -{Environment.NewLine}" +
+				$"CTRL- < : Move Noise Map Left{Environment.NewLine}" +
+				$"CTRL- > : Move Noise Map Right{Environment.NewLine}" +
+				$"CTRL- ^ : Move Noise Map Up{Environment.NewLine}" +
+				$"CTRL- v : Move Noise Map Down{Environment.NewLine}";
 
 			_config.TimingHeadingText =
 				$"Site count:{Environment.NewLine}" +
@@ -228,7 +188,7 @@ namespace vMap.MonoGame
 			Utilities.StartTimer("Draw");
 
 			_config.Fps.Update(gameTime);
-			base.GraphicsDevice.Clear(_config.BG_COLOR);
+			base.GraphicsDevice.Clear(MapConfig.Constants.BG_COLOR);
 			_config.SpriteBatch.Begin();
 
 			// handle all the Sites that have been altered and pushed onto the event queue for updating
@@ -236,32 +196,42 @@ namespace vMap.MonoGame
 				this.UpdateSite(_config.SitesToUpdate.Dequeue());
 
 			// CTRL-F1: Show agents /////////////////////////////////////////////////////////////////////////////
-			if(_config.ShowAgents)
+			if(MapConfig.Constants.SHOW_AGENTS)
 			{
 				if(_config.Rogue != null)
 					this.DrawRogue();
 				this.DrawAgents();
 			}
 
+			// CTRL-F2: Show noise map //////////////////////////////////////////////////////////////////////////
+			if (MapConfig.Constants.SHOW_NOISE_MAP)
+			{
+				_config.SpriteBatch.Draw(
+					_config.NoiseMapTexture,
+					_config.NoiseMapTextureLocation,
+					MXF.Color.White
+				);
+			}
+
 			// F11: Fill sites //////////////////////////////////////////////////////////////////////////////////
-			if (_config.FillSites)
+			if (MapConfig.Constants.FILL_SITES)
 				this.RenderBuffer(_config.SiteTriangleVertices, PrimitiveType.TriangleList, _config.SiteTriangleCount);
 
 			// F4: Show Delaunay triangulation lines ////////////////////////////////////////////////////////////
-			if(_config.ShowDelaunay)
+			if(MapConfig.Constants.SHOW_DELAUNAY)
 				this.RenderBuffer(_config.DelaunayLineVertices, PrimitiveType.LineList, _config.DelaunayLineCount);
 
 			// F2: Show site centerpoints ///////////////////////////////////////////////////////////////////////
-			if(_config.ShowSiteCenterpoints)
+			if(MapConfig.Constants.SHOW_SITE_CENTERPOINTS)
 				foreach(var site in _config.Map.Sites.Values.Select(s => s.Data))
-					_config.SpriteBatch.Draw(_config.Pixel, new Vector2(site.Point.X, site.Point.Y), _config.CENTERPOINT_COLOR);
+					_config.SpriteBatch.Draw(_config.Pixel, new Vector2(site.Point.X, site.Point.Y), MapConfig.Constants.CENTERPOINT_COLOR);
 			
 			// F1: Show site borders ////////////////////////////////////////////////////////////////////////////
-			if (_config.ShowSiteBorders)
+			if (MapConfig.Constants.SHOW_SITE_BORDERS)
 				this.RenderBuffer(_config.BorderLineVertices, PrimitiveType.LineList, _config.BorderLineCount);
 
 			// F12: Show Help Text //////////////////////////////////////////////////////////////////////////////
-			if (_config.ShowHelp)
+			if (MapConfig.Constants.SHOW_HELP)
 				this.DrawHelpText();
 
 			_config.SpriteBatch.End();
@@ -287,18 +257,18 @@ namespace vMap.MonoGame
 		private void DrawRogue()
 		{
 			if (_config.Rogue.Site != null)
-				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, _config.FillSites ? _config.Rogue.Site.GetXnaColor() : Color.White);
+				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, MapConfig.Constants.FILL_SITES ? _config.Rogue.Site.GetXnaColor() : MXF.Color.White);
 			else
-				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, Color.White);
+				_config.SpriteBatch.Draw(_config.RogueSprite, _config.Rogue.Location, MXF.Color.White);
 		}
 		private void DrawAgents()
 		{
 			foreach(var agent in _config.Agents)
 			{
 				if(agent.Site != null)
-					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, _config.FillSites ? agent.Site.GetXnaColor() : Color.White);
+					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, MapConfig.Constants.FILL_SITES ? agent.Site.GetXnaColor() : MXF.Color.White);
 				else
-					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, Color.White);
+					_config.SpriteBatch.Draw(_config.AgentSprite, agent.Location, MXF.Color.White);
 			}
 		}
 		private void DrawHelpText()
@@ -307,73 +277,73 @@ namespace vMap.MonoGame
 				spriteFont : _config.FontSegoe12Regular,
 				text       : _config.HelpText,
 				position   : new Vector2(10, 10),
-				color      : _config.HELP_TEXT_COLOR
+				color      : MapConfig.Constants.HELP_TEXT_COLOR
 			);
 
 			_config.SpriteBatch.DrawString(
 				spriteFont : _config.FontSegoe12Regular,
 				text       : _config.HelpText2,
 				position   : new Vector2(420, 10),
-				color      : _config.HELP_TEXT_COLOR
+				color      : MapConfig.Constants.HELP_TEXT_COLOR
 			);
 
 			_config.SpriteBatch.DrawString(
 				spriteFont : _config.FontSegoe10Bold,
 				text       : _config.TimingHeadingText,
                 position   : new Vector2(10, _config.PlotBounds.Height - 300),
-				color      : _config.HELP_TEXT_COLOR
+				color      : MapConfig.Constants.HELP_TEXT_COLOR
 			);
 
 			const float TICKS_PER_MS = TimeSpan.TicksPerMillisecond;
-			var filledText = _config.FillSites ? "Filled" : "Outlined";
+			var filledText = MapConfig.Constants.FILL_SITES ? "Filled" : "Outlined";
 			var timingText =
-				$"{_config.SiteCount: 0000} ({filledText}){Environment.NewLine}" +
+				$"{MapConfig.Constants.SITE_COUNT : 0000} ({filledText}){Environment.NewLine}" +
                 $"{_config.Fps.CurrentFramesPerSecond : 0000.0000}{Environment.NewLine}";
 
 			if(Utilities.TraceLevel >= VoronoiTraceLevel.DetailedTiming)
 				timingText +=
 					$"{Environment.NewLine}" +
 
-					$"{_config.InitTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.NoiseTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.LoadContentTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.UpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.KeyboardUpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
-					$"{_config.MouseUpdateTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}" +
+					$"{_config.InitTimeTicks / TICKS_PER_MS			  : 0000.0000}{Environment.NewLine}" +
+					$"{_config.NoiseTimeTicks / TICKS_PER_MS		  : 0000.0000}{Environment.NewLine}" +
+					$"{_config.LoadContentTimeTicks / TICKS_PER_MS	  : 0000.0000}{Environment.NewLine}" +
+					$"{_config.UpdateTimeTicks / TICKS_PER_MS		  : 0000.0000}{Environment.NewLine}" +
+					$"{_config.KeyboardUpdateTimeTicks / TICKS_PER_MS : 0000.0000}{Environment.NewLine}" +
+					$"{_config.MouseUpdateTimeTicks / TICKS_PER_MS	  : 0000.0000}{Environment.NewLine}" +
 
 					$"{Environment.NewLine}" +
 
-					$"{_config.DrawTimeTicks / TICKS_PER_MS: 0000.0000}{Environment.NewLine}";
+					$"{_config.DrawTimeTicks / TICKS_PER_MS : 0000.0000}{Environment.NewLine}";
 
 			_config.SpriteBatch.DrawString(
 				spriteFont : _config.FontSegoe10Bold,
 				text	   : timingText,
 				position   : new Vector2(170, _config.PlotBounds.Height - 300),
-				color	   : _config.HELP_TEXT_COLOR
+				color	   : MapConfig.Constants.HELP_TEXT_COLOR
 			);
 
-			if (_config.ShowSiteBorders)
+			if (MapConfig.Constants.SHOW_SITE_BORDERS)
 				_config.SpriteBatch.DrawString(
 					spriteFont : _config.FontSegoe10Bold,
 					text       : "Borders",
 					position   : new Vector2(10, _config.PlotBounds.Height - 20),
-					color      : _config.HELP_TEXT_COLOR
+					color      : MapConfig.Constants.HELP_TEXT_COLOR
 				);
 
-			if (_config.ShowSiteCenterpoints)
+			if (MapConfig.Constants.SHOW_SITE_CENTERPOINTS)
 				_config.SpriteBatch.DrawString(
 					spriteFont : _config.FontSegoe10Bold,
 					text       : "Centerpoints",
 					position   : new Vector2(80, _config.PlotBounds.Height - 20),
-					color      : _config.HELP_TEXT_COLOR
+					color      : MapConfig.Constants.HELP_TEXT_COLOR
 				);
 
-			if (_config.ShowDelaunay)
+			if (MapConfig.Constants.SHOW_DELAUNAY)
 				_config.SpriteBatch.DrawString(
 					spriteFont : _config.FontSegoe10Bold,
 					text       : "Delaunay",
 					position   : new Vector2(190, _config.PlotBounds.Height - 20),
-					color      : _config.HELP_TEXT_COLOR
+					color      : MapConfig.Constants.HELP_TEXT_COLOR
 				);
 		}
 		private void UpdateMouseInput()
@@ -410,34 +380,34 @@ namespace vMap.MonoGame
 			}
 
 			if (leftButton && controlKey)
-				_mouseHandler.HandleMouse_ControlLeftButtonClick();
+				_config.MouseHandler.HandleMouse_ControlLeftButtonClick();
 			else if (rightButton && controlKey)
-				_mouseHandler.HandleMouse_ControlRightButtonClick();
+				_config.MouseHandler.HandleMouse_ControlRightButtonClick();
 			else if (leftButton && shiftKey)
-				_mouseHandler.HandleMouse_ShiftLeftButtonClick();
+				_config.MouseHandler.HandleMouse_ShiftLeftButtonClick();
 			else if (rightButton && shiftKey)
-				_mouseHandler.HandleMouse_ShiftRightButtonClick();
+				_config.MouseHandler.HandleMouse_ShiftRightButtonClick();
 			else if (leftButton)
-				_mouseHandler.HandleMouse_LeftButtonClick();
+				_config.MouseHandler.HandleMouse_LeftButtonClick();
 			else if (rightButton)
-				_mouseHandler.HandleMouse_RightButtonClick();
+				_config.MouseHandler.HandleMouse_RightButtonClick();
 			else if (controlKey)
-				_mouseHandler.HandleMouse_ControlHover();
+				_config.MouseHandler.HandleMouse_ControlHover();
 			else if (shiftKey)
-				_mouseHandler.HandleMouse_ShiftHover();
+				_config.MouseHandler.HandleMouse_ShiftHover();
 			else
-				_mouseHandler.HandleMouse_Hover();
+				_config.MouseHandler.HandleMouse_Hover();
 
 			_config.MouseUpdateTimeTicks = Utilities.StopTimer("UpdateMouseInput");
 		}
 		private void UpdateKeyboardInput()
 		{
 			Utilities.Debug("vMapMain.UpdateKeyboardInput() called.");
-			_keyHandler.HandleKeys();
+			_config.KeyHandler.HandleKeys();
 		}
 		private void CreateKeyHandlers()
 		{
-			_keyHandler.KeyHandlers =
+			_config.KeyHandler.KeyHandlers =
 				new Dictionary<Keys[], KeyHandlerDelegate>
 				{
 				    { new Keys[1] { Keys.Escape }			     , Exit },
@@ -453,47 +423,89 @@ namespace vMap.MonoGame
 				    { new Keys[1] { Keys.F10 }				     , IncreaseSites },
 				    { new Keys[1] { Keys.F11 }				     , ToggleOutlineFill },
 				    { new Keys[1] { Keys.F12 }				     , ToggleHelp },
-				    { new Keys[2] { Keys.LeftControl, Keys.F1 }  , ToggleAgents },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.F1 } , ToggleAgents },
 					{ new Keys[2] { Keys.RightControl, Keys.F1 } , ToggleAgents },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.F2 } , ToggleNoiseMapTexture },
+					{ new Keys[2] { Keys.RightControl, Keys.F2 } , ToggleNoiseMapTexture },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Left } , MoveNoiseMapTextureLeft },
+					{ new Keys[2] { Keys.RightControl, Keys.Left } , MoveNoiseMapTextureLeft },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Right } , MoveNoiseMapTextureRight },
+					{ new Keys[2] { Keys.RightControl, Keys.Right } , MoveNoiseMapTextureRight },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Up } , MoveNoiseMapTextureUp },
+					{ new Keys[2] { Keys.RightControl, Keys.Up } , MoveNoiseMapTextureUp },
+
+					{ new Keys[2] { Keys.LeftControl,  Keys.Down } , MoveNoiseMapTextureDown },
+					{ new Keys[2] { Keys.RightControl, Keys.Down } , MoveNoiseMapTextureDown },
 				};
 		}
-
+		private void MoveNoiseMapTextureLeft()
+		{
+			if((_config.NoiseMapTextureLocation.X - 10) >= 0)
+				_config.NoiseMapTextureLocation.X -= 10;
+		}
+		private void MoveNoiseMapTextureRight()
+		{
+			if((_config.NoiseMapTextureLocation.X + 10) <= _config.PlotBounds.Width)
+				_config.NoiseMapTextureLocation.X += 10;
+		}
+		private void MoveNoiseMapTextureUp()
+		{
+			if((_config.NoiseMapTextureLocation.Y - 10) >= 0)
+			_config.NoiseMapTextureLocation.Y -= 10;
+		}
+		private void MoveNoiseMapTextureDown()
+		{
+			if((_config.NoiseMapTextureLocation.Y + 10) <= _config.PlotBounds.Height)
+				_config.NoiseMapTextureLocation.Y += 10;
+		}
 		private void ClearAndRegenerateNoise()
 		{
 			this.ClearMap();
 			this.CreateNoiseMap();
 		}
-
-		private void ToggleBorders()
-		{
-			_config.ShowSiteBorders = !_config.ShowSiteBorders;
-		}
-		private void ToggleSiteCenterpoints()
-		{
-			_config.ShowSiteCenterpoints = !_config.ShowSiteCenterpoints;
-		}
-		private void ToggleDelaunayLines()
-		{
-			_config.ShowDelaunay = !_config.ShowDelaunay;
-		}
 		private void CreateNoiseMap()
 		{
 			Utilities.StartTimer("NoiseMap");
-			_config.Map.SetNoiseMap(
-				NoiseGenerator.GenerateNoise(
-					noiseType   : NoiseType.Billow,
+
+			var noiseMap = NoiseGenerator.GenerateNoise(
+					noiseType   : MapConfig.Constants.NOISE_TYPE,
 					width       : _config.PlotBounds.Width,
 					height      : _config.PlotBounds.Height,
-					frequency   : .003,
-					quality     : NoiseQuality.High,
+					frequency   : MapConfig.Constants.NOISE_FREQUENCY,
+					quality     : MapConfig.Constants.NOISE_QUALITY,
 					seed        : Utilities.GetRandomInt(),
-					octaves     : 6,
-					lacunarity  : 1.75,
-					persistence : 0.65,
-					scale       : _config.NOISE_SCALE
-				),
-				scale: _config.NOISE_SCALE
+					octaves     : MapConfig.Constants.NOISE_OCTAVES,
+					lacunarity  : MapConfig.Constants.NOISE_LACUNARITY,
+					persistence : MapConfig.Constants.NOISE_PERSISTENCE,
+					scale       : MapConfig.Constants.NOISE_SCALE
+				);
+
+			// create a bitmap of the noise generated and store it as a Texture2D in the MapConfig
+			var bmpWidth = (int)(_config.PlotBounds.Width * MapConfig.Constants.NOISE_SCALE);
+			var bmpHeight = (int)(_config.PlotBounds.Height * MapConfig.Constants.NOISE_SCALE);
+			var bitmap = new Bitmap(bmpWidth, bmpHeight);
+			for(var x = 0; x < noiseMap.GetLength(0); x++)
+			{
+				for(var y = 0; y < noiseMap.GetLength(1); y++)
+				{
+					var intensity = (int)noiseMap[x, y];
+					bitmap.SetPixel(x, y, SD.Color.FromArgb(intensity, intensity, intensity));
+				}
+			}
+			_config.NoiseMapTexture = bitmap.ToTexture2D(_config.GfxDev);
+			_config.NoiseMapTextureLocation = new MXF.Rectangle(_config.PlotBounds.Width - bmpWidth - 100, _config.PlotBounds.Height - bmpHeight - 100, bmpWidth, bmpHeight);
+
+			// set the noise map on the Map (this calls the 'AssignElevations' method)
+			_config.Map.SetNoiseMap(
+				noiseMap,
+				scale: MapConfig.Constants.NOISE_SCALE
 			);
+
 			_config.NoiseTimeTicks = Utilities.StopTimer("NoiseMap");
 		}
 		private void RelaxVoronoiCells()
@@ -559,25 +571,13 @@ namespace vMap.MonoGame
 		}
 		private void DecreaseSites()
 		{
-			_config.SiteCount -= 1000;
+			MapConfig.Constants.SITE_COUNT -= 1000;
 			this.Initialize();
 		}
 		private void IncreaseSites()
 		{
-			_config.SiteCount += 1000;
+			MapConfig.Constants.SITE_COUNT += 1000;
 			this.Initialize();
-		}
-		private void ToggleOutlineFill()
-		{
-			_config.FillSites = !_config.FillSites;
-		}
-		private void ToggleHelp()
-		{
-			_config.ShowHelp = !_config.ShowHelp;
-		}
-		private void ToggleAgents()
-		{
-			_config.ShowAgents = !_config.ShowAgents;
 		}
 		private void StartAgentSearch(Site start, Site goal)
 		{
@@ -591,8 +591,8 @@ namespace vMap.MonoGame
 		}
 		private void CreateMap()
 		{
-			_config.Map = new Map(_config.SiteCount, _config.PlotBounds);
-			_config.Map.Relax(_config.INIT_RELAX_ITERATIONS);
+			_config.Map = new Map(MapConfig.Constants.SITE_COUNT, _config.PlotBounds);
+			_config.Map.Relax(MapConfig.Constants.INIT_RELAX_ITERATIONS);
 			_config.Map.SiteUpdated += this.OnSiteUpdated;
 		}
 		private void CreateVertexArrays()
@@ -648,8 +648,8 @@ namespace vMap.MonoGame
 					var start = edge.Value.Node1.Data.Point;
 					var end = edge.Value.Node2.Data.Point;
 
-					_config.DelaunayLineVertices[delaunayLineIndex] = new VertexPositionColor(new Vector3(start.X, start.Y, 0), _config.DELAUNAY_COLOR);
-					_config.DelaunayLineVertices[delaunayLineIndex + 1] = new VertexPositionColor(new Vector3(end.X, end.Y, 0), _config.DELAUNAY_COLOR);
+					_config.DelaunayLineVertices[delaunayLineIndex] = new VertexPositionColor(new Vector3(start.X, start.Y, 0), MapConfig.Constants.DELAUNAY_COLOR);
+					_config.DelaunayLineVertices[delaunayLineIndex + 1] = new VertexPositionColor(new Vector3(end.X, end.Y, 0), MapConfig.Constants.DELAUNAY_COLOR);
 					delaunayLineIndex += 2;
 				}
 			}
@@ -669,26 +669,12 @@ namespace vMap.MonoGame
 				{
 					if (last != PointF.Empty)
 					{
-						_config.BorderLineVertices[borderLineIndex] = new VertexPositionColor(new Vector3(last.X, last.Y, 0), _config.BORDER_COLOR);
-						_config.BorderLineVertices[borderLineIndex + 1] = new VertexPositionColor(new Vector3(rp.X, rp.Y, 0), _config.BORDER_COLOR);
+						_config.BorderLineVertices[borderLineIndex] = new VertexPositionColor(new Vector3(last.X, last.Y, 0), MapConfig.Constants.BORDER_COLOR);
+						_config.BorderLineVertices[borderLineIndex + 1] = new VertexPositionColor(new Vector3(rp.X, rp.Y, 0), MapConfig.Constants.BORDER_COLOR);
 						borderLineIndex += 2;
 					}
 					last = rp;
 				}
-			}
-		}
-		private static void OnSearchComplete(object sender, EventArgs e)
-		{
-			var search = (AStarSearch)sender;
-
-			if (!search.CameFrom.ContainsKey(search.Goal))
-				return;
-
-			var next = search.CameFrom[search.Goal];
-			while ((next != null) && !Equals(next, search.Start))
-			{
-				next.AddState(SiteState.Path);
-				next = search.CameFrom[next];
 			}
 		}
 		private void OnSiteUpdated(object sender, EventArgs e)
@@ -706,6 +692,50 @@ namespace vMap.MonoGame
 			var i = site.VertexBufferIndex;
 			for (var count = 0; count < site.RegionPoints.Length * 3; count++)
 				_config.SiteTriangleVertices[i++].Color = site.GetXnaColor();
+		}
+
+		private static void ToggleBorders()
+		{
+			MapConfig.Constants.SHOW_SITE_BORDERS = !MapConfig.Constants.SHOW_SITE_BORDERS;
+		}
+		private static void ToggleSiteCenterpoints()
+		{
+			MapConfig.Constants.SHOW_SITE_CENTERPOINTS = !MapConfig.Constants.SHOW_SITE_CENTERPOINTS;
+		}
+		private static void ToggleDelaunayLines()
+		{
+			MapConfig.Constants.SHOW_DELAUNAY = !MapConfig.Constants.SHOW_DELAUNAY;
+		}
+		private static void ToggleOutlineFill()
+		{
+			MapConfig.Constants.FILL_SITES = !MapConfig.Constants.FILL_SITES;
+		}
+		private static void ToggleHelp()
+		{
+			MapConfig.Constants.SHOW_HELP = !MapConfig.Constants.SHOW_HELP;
+		}
+		private static void ToggleAgents()
+		{
+			MapConfig.Constants.SHOW_AGENTS = !MapConfig.Constants.SHOW_AGENTS;
+		}
+		private static void ToggleNoiseMapTexture()
+		{
+			MapConfig.Constants.SHOW_NOISE_MAP = !MapConfig.Constants.SHOW_NOISE_MAP;
+		}
+
+		private static void OnSearchComplete(object sender, EventArgs e)
+		{
+			var search = (AStarSearch)sender;
+
+			if (!search.CameFrom.ContainsKey(search.Goal))
+				return;
+
+			var next = search.CameFrom[search.Goal];
+			while ((next != null) && !Equals(next, search.Start))
+			{
+				next.AddState(SiteState.Path);
+				next = search.CameFrom[next];
+			}
 		}
 	}
 }
